@@ -3,29 +3,55 @@
 *Owned by the architect agent. If code and this doc disagree, fix one of them.*
 
 ## Stack
-<!-- Filled during /kickoff: engine (Godot / Kotlin+Compose), local storage, any third-party libraries (should be none). -->
+- **Language/UI**: Kotlin + Jetpack Compose (native Android). See ADR 2026-09-22 for why over Godot.
+- **Local storage**: Jetpack DataStore (Preferences), added when the first game actually needs to remember something between sessions. Nothing in Milestone 1 needs persistence — every round starts fresh.
+- **Third-party dependencies**: none beyond standard AndroidX/Compose libraries. No ad SDK, no analytics SDK, no billing library, no network library.
+
+## Shape: a hub with pluggable game modules
+The app is one shell (the home screen) plus a growing set of independent games. Each game is a **module that knows nothing about the others or about the shell beyond one small contract**:
+
+```kotlin
+interface MiniGame {
+    val id: String              // stable, e.g. "paw-match" — never reused once shipped
+    val icon: @Composable () -> Unit   // the home-screen tile's icon, no text
+    val content: @Composable (onExit: () -> Unit) -> Unit  // the game itself; calls onExit() to return home
+}
+```
+
+- Each game lives in its own package (`games/pawmatch/`, `games/<nextgame>/`), owns its own state, and is added to a single static list (`GameCatalog.kt`) that the home screen renders as a grid of tiles — one tile per registered game, in list order.
+- **Adding a game is additive only**: a new package + one line in `GameCatalog.kt`. No existing game, and nothing in the home screen shell, should need to change to add the next one. If a change request would require touching another game to add a new one, that's an architecture problem — stop and flag it rather than special-case it.
+- The home screen never shows a tile for a game that isn't actually built and registered — no "coming soon" placeholders in the shipped app (see PRD, out of scope). The grid simply has as many tiles as there are entries in the catalog.
+- Every `MiniGame.content` gets an `onExit` callback (a large, obvious "home" icon inside the game) rather than the system back button being the only way out — consistent, discoverable, works the same in every game.
 
 ## System diagram
 ```mermaid
-flowchart LR
-    P[Player] --> APP[Android app]
-    APP --> SAVE[(Local save file)]
+flowchart TB
+    P[Toddler] --> HOME[Home screen — tile grid]
+    HOME -->|tap tile| CATALOG[GameCatalog]
+    CATALOG --> G1[Paw Match]
+    CATALOG -.->|future| G2[Game 2]
+    CATALOG -.->|future| G3[Game 3]
+    G1 -->|onExit| HOME
 ```
-<!-- No server, no API, no database — this is a client-only, offline app. Replace only if a future feature (e.g. an opt-in leaderboard) genuinely needs one, with an ADR explaining why. -->
+No server, no API, no database, no network calls. Fully offline. Dotted lines are games that don't exist yet — not stubs in the code, just future catalog entries.
 
 ## Data model
-<!-- Core entities in the save file: progress, unlocked levels, settings. Keep at the conceptual level. -->
+- **MiniGame catalog entry**: id, icon composable, content composable (see contract above). Static list, no persistence.
+- **Paw Match round state** (in-memory only): list of Cards (id, matched pair id, icon reference, revealed, matched), count of matched pairs, derived "is round complete" flag.
+- (Future) **Preferences**: per-game settings worth remembering (e.g. a theme choice) — persisted via DataStore only once a specific game needs it; not a shared/global concept until two games actually want the same thing.
 
 ## Key flows
-<!-- The 1-3 flows that matter: e.g. first launch, the core game loop, resuming a saved game. Bullet steps, not prose. -->
+- **App open → home**: app launches straight into the home screen tile grid. No splash screen with text.
+- **Tile tap → game**: tap a tile → that game's `content` composable takes over the full screen.
+- **Paw Match round**: shuffle N pairs of animal icons into a grid → all cards face-down → tap flow (flip, compare after a short delay, match-and-lock or mismatch-and-flip-back) → win screen (play again / home).
+- **Exit → home**: any game's exit icon calls `onExit`, returning to the tile grid. Round/game state resets; nothing carries over between plays.
 
 ## Third-party dependencies
-<!-- Every library this project pulls in, why, and what it can access. Default is an empty table — anything added here should be justified in docs/DECISIONS.md. -->
 
 | Library | Purpose | Network/data access |
 |---|---|---|
-| | | |
+| *(none yet)* | | |
 
 ## Release
-- **Signing**: release keystore stored as a GitHub Actions secret, never in the repo. See `docs/DECISIONS.md` for when it was set up.
-- **Distribution**: built and signed from `main` via `.github/workflows/deploy.yml`; sideloaded APK and/or Google Play internal testing track.
+- **Signing**: release keystore stored as a GitHub Actions secret, never in the repo. Not yet generated — run `/deploy` when ready for a signed build; a debug build is sufficient for on-device testing until then.
+- **Distribution**: built and signed from `main` via `.github/workflows/deploy.yml`; sideloaded APK onto the founder's phone. No Play Store listing planned unless the founder asks for one later.

@@ -1,8 +1,8 @@
-# <!-- KICKOFF: project name -->Project Name
+# Paw Play
 
-<!-- KICKOFF: one-line description of what this game does and for whom -->
+A calm, ad-free hub of small games for a 2-5 year old, opened with the phone handed over and no supervision needed. First game on the shelf: Paw Match, a matching game.
 
-> Run `/kickoff` if the KICKOFF placeholders in this file are still unfilled — this project hasn't been initialized yet.
+> Stack & commands below are still unfilled — run `/kickoff` (or just start scaffolding, per `docs/PRD.md`) to get the project actually building.
 
 ## Who you're working with
 
