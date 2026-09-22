@@ -28,7 +28,10 @@ This is a **hub app**: one home screen showing a shelf of game tiles (icons only
 | 4 | As a toddler, I want matched pairs to celebrate, so that I know I did something right | Given two revealed cards showing the same animal, when they're the second tap of the pair, then both play a short celebration (animation + happy sound) and stay face-up/locked | ☐ |
 | 5 | As a toddler, I want a mismatch to be gentle, not punishing, so that I'm not afraid to try | Given two revealed cards showing different animals, when a short pause elapses, then both flip back face-down with no negative sound, no penalty, no counter of "wrong" attempts | ☐ |
 | 6 | As a toddler, I want to know when I've won, so that the game feels complete | Given all pairs are matched, when the last pair locks in, then a full-screen "you did it!" celebration appears with one large icon button to play again and one large icon button back to the home screen | ☐ |
-| 7 | As a parent, I want it structurally impossible to reach a purchase, ad, or external link anywhere in the app — hub or any game, so that I never have to supervise | Given any screen in the app, there is no button, menu, or gesture that opens a purchase flow, an ad, or a browser/external app | ☐ |
+| 7 | As a toddler, I want the next round to feel like a fresh little challenge, so that the game stays interesting as I get better at it | Given I tap "play again" after winning, when the new round starts, then it has one more pair than the round I just won (3 → 4 → 5 → 6), capped at 6 pairs so the grid never gets too big for the screen or my patience | ☐ |
+| 8 | As a parent, I want it structurally impossible to reach a purchase, ad, or external link anywhere in the app — hub or any game, so that I never have to supervise | Given any screen in the app, there is no button, menu, or gesture that opens a purchase flow, an ad, or a browser/external app | ☐ |
+
+Difficulty is **session-scoped, not saved**: leaving Paw Match for the home screen and tapping back in starts over at 3 pairs (consistent with the no-persistence decision in `docs/DECISIONS.md`). No numeric level indicator — the grid getting visibly bigger is the only signal a toddler needs; reading a number isn't required anywhere.
 
 ### Milestone 2 — Second game on the shelf
 <!-- Sketch only; detail when Milestone 1 ships. -->

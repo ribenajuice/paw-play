@@ -1,24 +1,38 @@
 #!/usr/bin/env bash
 # Single build/release entrypoint — CI runs exactly this, and so can you.
-# The /kickoff (or /deploy) workflow replaces the placeholder below with the
-# real signed-build commands for the engine chosen in docs/ARCHITECTURE.md.
 #
-# Expected env vars when signing (set by CI from repo secrets, or export
-# them yourself locally): ANDROID_KEYSTORE_PATH, ANDROID_KEYSTORE_PASSWORD,
-# ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD.
+# Uses ./gradlew if it's present and executable (Android Studio generates
+# it on first project open), otherwise falls back to a `gradle` on PATH
+# (what CI uses via gradle/actions/setup-gradle — see .github/workflows).
+#
+# With no signing configured, this produces a debug APK, installable via
+# `adb install` or by copying it to the phone. Once a release keystore is
+# set up (run /deploy for first-time setup), it produces a signed release
+# AAB instead — set ANDROID_KEYSTORE_PATH/_PASSWORD, ANDROID_KEY_ALIAS,
+# ANDROID_KEY_PASSWORD to opt into that path.
 set -euo pipefail
 
-echo "❌ deploy.sh has not been configured yet."
-echo "   Run /deploy in Claude Code — it will wire this up for your engine."
-exit 1
+if [ ! -f settings.gradle.kts ]; then
+  echo "❌ No Gradle project found yet. Run /kickoff (or /deploy) to scaffold it."
+  exit 1
+fi
 
-# --- Examples the devops-engineer agent may adapt ---
-# Gradle (Kotlin/Compose):
-#   ./gradlew bundleRelease \
-#     -Pandroid.injected.signing.store.file="$ANDROID_KEYSTORE_PATH" \
-#     -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
-#     -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
-#     -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
-#
-# Godot (export presets defined in export_presets.cfg):
-#   godot --headless --export-release "Android" build/game.apk
+GRADLE_CMD="gradle"
+if [ -x "./gradlew" ]; then
+  GRADLE_CMD="./gradlew"
+fi
+
+if [ -n "${ANDROID_KEYSTORE_PATH:-}" ] && [ -f "${ANDROID_KEYSTORE_PATH}" ]; then
+  echo "Building signed release AAB..."
+  "$GRADLE_CMD" bundleRelease \
+    -Pandroid.injected.signing.store.file="$ANDROID_KEYSTORE_PATH" \
+    -Pandroid.injected.signing.store.password="$ANDROID_KEYSTORE_PASSWORD" \
+    -Pandroid.injected.signing.key.alias="$ANDROID_KEY_ALIAS" \
+    -Pandroid.injected.signing.key.password="$ANDROID_KEY_PASSWORD"
+  echo "✅ Signed AAB at app/build/outputs/bundle/release/app-release.aab"
+else
+  echo "No signing keystore configured yet — building a debug APK instead."
+  echo "(Run /deploy for first-time signing setup when you're ready for a real release.)"
+  "$GRADLE_CMD" assembleDebug
+  echo "✅ Debug APK at app/build/outputs/apk/debug/app-debug.apk"
+fi

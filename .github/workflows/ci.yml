@@ -11,20 +11,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Gradle / Android (Kotlin + Compose) project
+      # Gradle / Android (Kotlin + Compose) project. Uses a system Gradle
+      # install rather than the wrapper — see docs/ARCHITECTURE.md's release
+      # notes on why gradlew isn't committed.
       - name: Setup JDK
-        if: ${{ hashFiles('gradlew') != '' }}
+        if: ${{ hashFiles('settings.gradle.kts') != '' }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
+      - name: Setup Gradle
+        if: ${{ hashFiles('settings.gradle.kts') != '' }}
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
       - name: Lint, unit test, assemble debug (Gradle)
-        if: ${{ hashFiles('gradlew') != '' }}
-        run: |
-          chmod +x gradlew
-          ./gradlew lintDebug testDebugUnitTest assembleDebug
+        if: ${{ hashFiles('settings.gradle.kts') != '' }}
+        run: gradle lintDebug testDebugUnitTest assembleDebug
 
-      # Godot project
+      # Godot project (kept as a fallback path — see architect ADR on engine choice)
       - name: Import & headless check (Godot)
         if: ${{ hashFiles('project.godot') != '' }}
         uses: chickensoft-games/setup-godot@v2
@@ -35,5 +40,5 @@ jobs:
         run: godot --headless --import --quit
 
       - name: No project scaffolded yet
-        if: ${{ hashFiles('gradlew') == '' && hashFiles('project.godot') == '' }}
-        run: echo "No gradlew or project.godot found — skipping (run /kickoff to scaffold)."
+        if: ${{ hashFiles('settings.gradle.kts') == '' && hashFiles('project.godot') == '' }}
+        run: echo "No settings.gradle.kts or project.godot found — skipping (run /kickoff to scaffold)."

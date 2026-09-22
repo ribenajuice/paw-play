@@ -1,0 +1,6 @@
+<resources>
+    <!-- Minimal manifest-level theme; all real theming is done in Compose
+         (see ui/theme/Theme.kt). This just sets the system window chrome
+         before the first frame draws. -->
+    <style name="Theme.PawPlay" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

@@ -12,6 +12,12 @@ Format:
 
 ---
 
+## 2026-09-22 — Progressive difficulty, capped at 6 pairs, session-scoped
+- **Context**: founder wants Paw Match to get gradually harder as rounds are cleared, rather than staying at a fixed difficulty forever.
+- **Decision**: each "play again" starts one pair harder than the round just won (3 → 4 → 5 → 6 pairs), capped at 6. The cap exists because the grid is fixed at 2 columns, and 6 pairs (12 cards, 6 rows) is roughly where card size hits the 48dp touch-target floor on a typical phone screen — see `docs/DESIGN-SYSTEM.md`. Difficulty resets to 3 pairs each time the game is entered fresh from the home screen; it is not persisted (consistent with the standing no-persistence-in-v1 decision below).
+- **Alternatives**: persisting the player's highest level reached (so re-entering resumes difficulty) — rejected for v1 as an unnecessary DataStore dependency for a game this short; revisit if it turns out to matter in practice. An uncapped difficulty curve — rejected, an ever-growing grid stops being fun and starts being a scrolling UI problem.
+- **Consequences**: `PawMatchLogic.pairsForLevel()` is a pure function of level number, trivially unit-tested without touching Compose or Android at all.
+
 ## 2026-09-22 — Hub app with pluggable game modules, not a single-game app
 - **Context**: founder wants an app that holds a small, growing shelf of mini-games (Kidlo-style home menu), not just the one matching game originally scoped. We won't build every game up front.
 - **Decision**: one app shell (home screen tile grid) + independent game modules behind a small `MiniGame` contract (id, icon, content composable with an `onExit` callback), registered in a single static `GameCatalog`. Home screen renders one tile per catalog entry — no placeholders for unbuilt games.

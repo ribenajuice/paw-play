@@ -54,10 +54,9 @@ Requests that arrive without a slash command still follow the same discipline: a
 
 ## Stack & commands
 
-<!-- KICKOFF: filled in during /kickoff -->
-- Engine:
-- Install: `<!-- e.g. open in Android Studio / godot --headless --import -->`
-- Build (debug): `<!-- e.g. ./gradlew assembleDebug -->`
-- Test: `<!-- e.g. ./gradlew testDebugUnitTest -->`
-- Lint: `<!-- e.g. ./gradlew lintDebug -->`
+- Engine: Kotlin + Jetpack Compose (native Android). See `docs/DECISIONS.md`.
+- Open: Android Studio → Open → this folder. First open will offer to generate the Gradle wrapper (`gradlew`) — accept it; CI uses a pinned system Gradle instead and doesn't need it committed.
+- Build (debug): `./gradlew assembleDebug` (or `gradle assembleDebug` if no wrapper yet)
+- Test: `./gradlew testDebugUnitTest` — pure-Kotlin game logic (`PawMatchLogic.kt`) is unit tested in `app/src/test/`; no emulator needed.
+- Lint: `./gradlew lintDebug`
 - Release build: `scripts/deploy.sh` (CI runs it via `.github/workflows/deploy.yml`)

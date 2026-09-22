@@ -16,6 +16,12 @@ build/
 captures/
 .cxx/
 
+# Android Studio / IDE
+.idea/
+*.iml
+.DS_Store
+captures/
+
 # Godot build output
 .godot/
 export_presets.cfg.bak
