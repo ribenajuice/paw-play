@@ -1,0 +1,28 @@
+# Signing keys & local secrets — never commit
+*.jks
+*.keystore
+local.properties
+.env
+.env.*
+!.env.example
+*.pem
+
+# Android / Gradle build output
+build/
+.gradle/
+*.apk
+*.aab
+*.idsig
+captures/
+.cxx/
+
+# Godot build output
+.godot/
+export_presets.cfg.bak
+*.pck
+
+# Local-only Claude Code settings
+.claude/settings.local.json
+
+# OS noise
+.DS_Store

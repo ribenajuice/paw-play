@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Gradle / Android (Kotlin + Compose) project
+      - name: Setup JDK
+        if: ${{ hashFiles('gradlew') != '' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Lint, unit test, assemble debug (Gradle)
+        if: ${{ hashFiles('gradlew') != '' }}
+        run: |
+          chmod +x gradlew
+          ./gradlew lintDebug testDebugUnitTest assembleDebug
+
+      # Godot project
+      - name: Import & headless check (Godot)
+        if: ${{ hashFiles('project.godot') != '' }}
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: 4.x
+      - name: Godot import + script check
+        if: ${{ hashFiles('project.godot') != '' }}
+        run: godot --headless --import --quit
+
+      - name: No project scaffolded yet
+        if: ${{ hashFiles('gradlew') == '' && hashFiles('project.godot') == '' }}
+        run: echo "No gradlew or project.godot found — skipping (run /kickoff to scaffold)."

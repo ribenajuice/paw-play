@@ -1,0 +1,57 @@
+name: Release build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+# Signing key lives only as encrypted repo secrets — decoded to a temp file
+# for this run and never written to a log. scripts/deploy.sh does the actual
+# build; this workflow just wires the secret in and uploads the result.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Skips quietly until signing is set up (/deploy handles first-time setup)
+    if: ${{ vars.ANDROID_KEY_ALIAS != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK
+        if: ${{ hashFiles('gradlew') != '' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Decode signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > release.keystore
+
+      - name: Build signed release
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/release.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./scripts/deploy.sh
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f release.keystore
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-build
+          path: |
+            **/*.apk
+            **/*.aab
+          if-no-files-found: error
