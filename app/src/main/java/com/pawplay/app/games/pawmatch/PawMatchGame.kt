@@ -8,16 +8,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pawplay.app.games.MiniGame
 import com.pawplay.app.ui.theme.PawCoral
@@ -40,8 +38,27 @@ import com.pawplay.app.ui.theme.PawLeaf
 import com.pawplay.app.ui.theme.PawSky
 import com.pawplay.app.ui.theme.PawSunshine
 import kotlinx.coroutines.delay
+import kotlin.math.ceil
 
 private const val MISMATCH_DELAY_MS = 700L
+private val CARD_GAP = 16.dp
+private val MAX_CARD_SIZE = 170.dp
+private val MIN_CARD_SIZE = 48.dp // touch-target floor, docs/DESIGN-SYSTEM.md
+
+/**
+ * Picks however many columns (2-4) leave the biggest square card once
+ * [cardCount] cards are laid out in that many columns within the given
+ * space — never scrolling, per the founder's on-device playtest feedback
+ * (a scrollbar past 8 cards wasn't intuitive for a 4-year-old). See
+ * docs/DECISIONS.md.
+ */
+private fun bestColumnCount(cardCount: Int, maxWidth: Dp, maxHeight: Dp): Int =
+    (2..4).maxByOrNull { columns ->
+        val rows = ceil(cardCount / columns.toFloat()).toInt()
+        val cellWidth = (maxWidth - CARD_GAP * (columns - 1)) / columns
+        val cellHeight = (maxHeight - CARD_GAP * (rows - 1)) / rows
+        minOf(cellWidth, cellHeight)
+    } ?: 2
 
 object PawMatchGame : MiniGame {
     override val id = "paw-match"
@@ -91,19 +108,35 @@ private fun PawMatchScreen(onExit: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             ExitButton(onClick = onExit, modifier = Modifier.padding(20.dp))
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(24.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+            BoxWithConstraints(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                items(round.cards, key = { it.id }) { card ->
-                    GameCard(
-                        card = card,
-                        onClick = { round = round.tapCard(card.id) },
-                        modifier = Modifier.aspectRatio(1f),
-                    )
+                val cardCount = round.cards.size
+                val columns = bestColumnCount(cardCount, maxWidth, maxHeight)
+                val rows = ceil(cardCount / columns.toFloat()).toInt()
+                val cellWidth = (maxWidth - CARD_GAP * (columns - 1)) / columns
+                val cellHeight = (maxHeight - CARD_GAP * (rows - 1)) / rows
+                val cardSize = minOf(cellWidth, cellHeight, MAX_CARD_SIZE).coerceAtLeast(MIN_CARD_SIZE)
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(CARD_GAP),
+                ) {
+                    round.cards.chunked(columns).forEach { rowCards ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(CARD_GAP)) {
+                            rowCards.forEach { card ->
+                                GameCard(
+                                    card = card,
+                                    size = cardSize,
+                                    onClick = { round = round.tapCard(card.id) },
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -119,17 +152,24 @@ private fun PawMatchScreen(onExit: () -> Unit) {
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-private fun GameCard(card: Card, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun GameCard(card: Card, size: Dp, onClick: () -> Unit) {
     val borderColor = when {
         card.isMatched -> PawLeaf
         card.isRevealed -> PawSky
         else -> PawSunshine
     }
+    // Corner radius and border scale down with the card too, so a shrunk
+    // card at the 6-pair cap doesn't look like a tiny version of a
+    // differently-proportioned shape.
+    val cornerRadius = size * 0.16f
+    val borderWidth = (size.value * 0.024f).dp.coerceAtLeast(2.dp)
+
     Box(
-        modifier = modifier
-            .clip(RoundedCornerShape(28.dp))
+        modifier = Modifier
+            .size(size)
+            .clip(RoundedCornerShape(cornerRadius))
             .background(MaterialTheme.colorScheme.surface)
-            .border(BorderStroke(4.dp, borderColor), RoundedCornerShape(28.dp))
+            .border(BorderStroke(borderWidth, borderColor), RoundedCornerShape(cornerRadius))
             .clickable(enabled = !card.isRevealed && !card.isMatched, onClick = onClick)
             .semantics {
                 contentDescription = if (card.isRevealed || card.isMatched) {
@@ -142,9 +182,9 @@ private fun GameCard(card: Card, onClick: () -> Unit, modifier: Modifier = Modif
     ) {
         AnimatedContent(targetState = card.isRevealed || card.isMatched, label = "card-face") { faceUp ->
             if (faceUp) {
-                CritterIcon(critter = card.critter, modifier = Modifier.size(64.dp))
+                CritterIcon(critter = card.critter, modifier = Modifier.size(size * 0.55f))
             } else {
-                PawPrintIcon(modifier = Modifier.size(48.dp), tint = PawCoral.copy(alpha = 0.35f))
+                PawPrintIcon(modifier = Modifier.size(size * 0.42f), tint = PawCoral.copy(alpha = 0.35f))
             }
         }
     }
