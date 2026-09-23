@@ -53,7 +53,7 @@ jobs:
         run: rm -f release.keystore
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-build
           path: |
