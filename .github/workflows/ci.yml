@@ -9,7 +9,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Gradle / Android (Kotlin + Compose) project. Uses a system Gradle
       # install rather than the wrapper — see docs/ARCHITECTURE.md's release
