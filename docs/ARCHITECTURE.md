@@ -32,9 +32,11 @@ flowchart TB
     HOME -->|tap tile| CATALOG[GameCatalog]
     CATALOG --> G1[Paw Match]
     CATALOG --> G2[Paw Pour]
-    CATALOG -.->|future| G3[Game 3]
+    CATALOG --> G3[Paw Kitchen]
+    CATALOG -.->|future| G4[Game 4]
     G1 -->|onExit| HOME
     G2 -->|onExit| HOME
+    G3 -->|onExit| HOME
 ```
 No server, no API, no database, no network calls. Fully offline. Dotted lines are games that don't exist yet — not stubs in the code, just future catalog entries.
 
@@ -44,6 +46,8 @@ Paw Pour's package (`games/pawpour/`): `PawPourLogic.kt` (rules, ramp, generatio
 - **MiniGame catalog entry**: id, icon composable, content composable (see contract above). Static list, no persistence.
 - **Paw Match round state** (in-memory only): list of Cards (id, matched pair id, icon reference, revealed, matched), count of matched pairs, derived "is round complete" flag.
 - **Paw Pour round state** (in-memory only): a `Board` (tubes as bottom-first lists of `BandColor`, plus capacity) wrapped in a `RoundState` (round number, the board, `history` of every pour as `Step(boardBefore, move)`, and `safeDepth` = how many pours lead to the latest position known to be finishable). The ramp (`specForRound`) is a pure function of the round number, capped at round 6 (9 tubes, 7 colours). Selection, the pour animation and wobble live in the composable, not in the round state.
+- **Paw Kitchen state** (in-memory only, `games/pawkitchen/`): a `KitchenState` holds the menu (list of `Dish`), customers served this session, the current customer (a Paw Match `Critter`), the `Order` (dish + ingredient ids in shelf order), the tray (ingredient ids in a fixed random position order), the set of ingredients on the dish, and a phase (`BUILDING` or `SERVING`). A `Dish` is pure data: id, base ingredient, shelf of 3-6 ingredient ids. All rules are pure functions in `PawKitchenLogic.kt` (ramp, order generation, add/remove/toggle, exact-match, serve, next customer), unit tested with no Android.
+- **Paw Kitchen content** (`KitchenMenu.kt`, `KitchenIcons.kt`): a `DishSpec` pairs a `Dish` with one vector picture per shelf ingredient and a `DishView` that says which pieces are drawn (and where they can be tapped) for the ingredients currently on the dish. **Adding a dish = adding one `DishSpec` to `KitchenMenu.specs`**; ordering, tray, serve, ramp and the screen do not change. `KitchenMenuTest` checks every dish in the menu is complete.
 - (Future) **Preferences**: per-game settings worth remembering (e.g. a theme choice) — persisted via DataStore only once a specific game needs it; not a shared/global concept until two games actually want the same thing.
 
 ## Key flows
@@ -51,6 +55,7 @@ Paw Pour's package (`games/pawpour/`): `PawPourLogic.kt` (rules, ramp, generatio
 - **Tile tap → game**: tap a tile → that game's `content` composable takes over the full screen.
 - **Paw Match round**: shuffle N pairs of animal icons into a grid → all cards face-down → tap flow (flip, compare after a short delay, match-and-lock or mismatch-and-flip-back) → win screen (play again / home).
 - **Paw Pour round**: `generateBoard` deals a shuffled board and only keeps it if it is well mixed and the solver proves it winnable → tap a tube to lift it, tap another to pour (`Board.tap` decides: select / put down / pour / gentle wobble) → the pour animates, then `RoundState.poured` records it → `checkedFinishable()` runs the solver off the main thread → if the round can no longer be finished (no pour left, or pours that can't win), wait ~1s, then `undoLast()` step by step with a reverse animation back to `safeDepth`, and play continues → when every colour is gathered into one full tube (`Board.isSolved`; the same test as the finished-tube border and sparkle, so they always agree), win overlay (play again = next round on the ramp / home). Boards are dealt off the main thread, and "play again" keeps the win overlay up until the next board is ready. `RoundState.history` keeps at most `MAX_HISTORY` pours (never dropping any auto-undo could still need). Input is ignored while anything animates, is being checked or is being dealt; there is no sound, timer, score or counter.
+- **Paw Kitchen loop**: new game deals customer 1 (2 ingredients, 3 tray tiles) → tap a tray tile to put that ingredient on the dish (tap its faint slot or the piece on the dish to take it off; each ingredient can be on the dish once, pieces snap to their own place so tap order never matters) → the serve button is asleep until the dish is exactly the order (`onDish == order`, extras block it) → tap serve: phase becomes `SERVING`, every ingredient/serve tap is ignored, the customer is happy for 2 s → `nextCustomer` deals a different animal and a different order (never the previous one), one step up the ramp every two customers, capped at 5 in the order and 6 in the tray. Nothing is saved; leaving and coming back starts at customer 1.
 - **Exit → home**: any game's exit icon calls `onExit`, returning to the tile grid. Round/game state resets; nothing carries over between plays.
 
 ## Third-party dependencies
