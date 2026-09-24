@@ -10,3 +10,5 @@ val TraceGuideDots = Color(0xFFB9A2EC)   // dotted centre line
 val TraceGlow = Color(0xFFB18CFA)        // three widening rings under the paint
 val TraceGrape = Color(0xFF8E59E6)       // the paint, and the tile badge
 val TraceShine = Color(0xFFB995FA)       // centre highlight down painted runs
+val TraceFrogBlush = Color(0xFFFF8FA8)   // the happy frog's cheeks and tongue
+val TraceFrogMouth = Color(0xFFB8301F)   // the happy frog's open mouth

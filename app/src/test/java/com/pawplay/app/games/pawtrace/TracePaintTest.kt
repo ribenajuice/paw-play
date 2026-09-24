@@ -410,4 +410,18 @@ class TracePaintTest {
         assertEquals(before, p.touchedIndices(0))
         assertNotNull(p.marker())
     }
+
+    @Test
+    fun `one finger movement makes a bounded number of stamps whatever its length`() {
+        val p = paint("line-h")
+        val v0 = p.version
+        p.stampSegment(14.0, 50.0, 1e12, 50.0)             // enormous: capped at MAX_SEGMENT_STEPS stamps, no freeze
+        assertTrue(p.version - v0 <= MAX_SEGMENT_STEPS)
+        assertTrue(p.stampSegment(0.0, 0.0, Double.NaN, 1.0).isEmpty())
+        assertTrue(p.stampSegment(0.0, 0.0, Double.POSITIVE_INFINITY, 1.0).isEmpty())
+        // A real swipe across the whole box is well under the cap.
+        assertTrue(Math.ceil(hypot2(0.0, 0.0, 100.0, 100.0) / 2.0) < MAX_SEGMENT_STEPS)
+    }
+
+    private fun hypot2(x0: Double, y0: Double, x1: Double, y1: Double) = Math.hypot(x1 - x0, y1 - y0)
 }

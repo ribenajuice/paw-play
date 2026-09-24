@@ -280,4 +280,42 @@ class TraceSessionTest {
         s.pointerDown(3, line.xs[30], line.ys[30])
         assertTrue(s.paint.strokes[0].touched[30])
     }
+
+    @Test
+    fun `a finger that lands well outside the glyph box and slides onto the path starts painting when it reaches it`() {
+        val s = session()
+        val line = s.paint.strokes[0].stroke
+        s.pointerDown(1, 50.0, -60.0)                       // in the blank space above the box
+        assertFalse(s.paint.strokes[0].anyCovered)
+        s.pointerMove(1, 50.0, -20.0)
+        assertFalse(s.paint.strokes[0].anyCovered)
+        s.pointerMove(1, 50.0, 30.0)                        // 20 units above the line: still off it
+        assertFalse(s.paint.strokes[0].anyCovered)
+        s.pointerMove(1, 50.0, 45.0)                        // now within the corridor
+        assertTrue(s.paint.strokes[0].touched[24])
+        assertTrue(line.xs[24] == 50.0)
+    }
+
+    @Test
+    fun `a finger that lands outside the box to the side and slides in along the line paints it`() {
+        val s = session()
+        s.pointerDown(1, -40.0, 50.0)
+        for (x in -40..90 step 5) s.pointerMove(1, x.toDouble(), 50.0)
+        assertTrue(s.phase == TracePhase.CELEBRATING)
+    }
+
+    @Test
+    fun `a huge or non-finite movement cannot freeze the game or stamp endlessly`() {
+        val s = session()
+        val line = s.paint.strokes[0].stroke
+        s.pointerDown(1, line.xs[0], line.ys[0])
+        val t0 = System.nanoTime()
+        s.pointerMove(1, 1e15, 50.0)
+        s.pointerMove(1, Double.NaN, 50.0)
+        s.pointerMove(1, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY)
+        assertTrue("took ${(System.nanoTime() - t0) / 1e6}ms", System.nanoTime() - t0 < 500_000_000L)
+        // Still working afterwards.
+        s.pointerMove(1, line.xs[10], line.ys[10])
+        assertTrue(s.paint.strokes[0].touched[10])
+    }
 }

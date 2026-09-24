@@ -72,6 +72,9 @@ class StrokeState(val stroke: SampledStroke) {
 /** A stroke is finished at this share of its length painted. */
 const val DONE_FRACTION = 0.85
 
+/** The most stamps one finger movement makes (a real swipe across the whole 100-unit box needs 50). */
+const val MAX_SEGMENT_STEPS = 200
+
 /** Each touch paints the nearest sample and this many either side (2 x 1.5 = 3 glyph units). */
 const val STAMP_REACH = 2
 
@@ -164,7 +167,9 @@ class TracePaint(val glyph: Glyph, var tuning: TraceTuning = TraceTuning.REFEREN
      */
     fun stampSegment(x0: Double, y0: Double, x1: Double, y1: Double): List<Int> {
         val distance = hypot(x1 - x0, y1 - y0)
-        val steps = max(1, Math.ceil(distance / 2.0).toInt())
+        // A garbage or enormous jump (not a real finger) must neither freeze the game nor stamp a million points.
+        if (!distance.isFinite()) return emptyList()
+        val steps = min(MAX_SEGMENT_STEPS, max(1, Math.ceil(distance / 2.0).toInt()))
         val finished = ArrayList<Int>()
         for (k in 1..steps) finished += stamp(x0 + (x1 - x0) * k / steps, y0 + (y1 - y0) * k / steps)
         return finished
@@ -278,7 +283,7 @@ class TraceSession(
     /** A finger landed at ([x], [y]) in glyph units. Returns the strokes it finished. */
     fun pointerDown(id: Long, x: Double, y: Double): List<Int> {
         fingersDown++
-        if (phase != TracePhase.TRACING) return emptyList()
+        if (phase != TracePhase.TRACING || !x.isFinite() || !y.isFinite()) return emptyList()
         val onPath = paint.isOnPath(x, y)
         if (!primary.down(id, onPath)) return emptyList()
         lastX = x; lastY = y
@@ -286,7 +291,7 @@ class TraceSession(
     }
 
     fun pointerMove(id: Long, x: Double, y: Double): List<Int> {
-        if (phase != TracePhase.TRACING) return emptyList()
+        if (phase != TracePhase.TRACING || !x.isFinite() || !y.isFinite()) return emptyList()
         if (!primary.move(id, paint.isOnPath(x, y))) return emptyList()
         val finished = paint.stampSegment(lastX, lastY, x, y)
         lastX = x; lastY = y

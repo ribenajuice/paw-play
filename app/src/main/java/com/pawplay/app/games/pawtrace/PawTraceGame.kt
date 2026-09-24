@@ -21,7 +21,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -48,6 +47,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
@@ -56,8 +56,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.pawplay.app.games.MiniGame
-import com.pawplay.app.games.pawkitchen.CustomerFace
-import com.pawplay.app.games.pawmatch.Critter
 import com.pawplay.app.games.pawmatch.HomeGlyphIcon
 import com.pawplay.app.games.pawmatch.PawPrintIcon
 import com.pawplay.app.ui.theme.PawCoral
@@ -67,6 +65,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -127,17 +126,21 @@ internal fun TraceScene(session: TraceSession, onExit: () -> Unit) {
         val walk = remember { Animatable(0f) }                                // 0..1: how far the idle hint has walked the frog
         val scope = rememberCoroutineScope()
 
+        // What the drawing last saw, so a touch that changed nothing (off the path, a second finger) redraws nothing.
+        val seen = remember { intArrayOf(-1, -1) } // glyph serial, paint version
         val onTouched = remember(serial) {
             { finished: List<Int>, touchChanged: Boolean ->
-                revision.intValue++
+                // Gap-fill progress starts at 0 before anything can draw the finished stroke in full.
+                for (stroke in finished) fill[stroke] = 0f
+                if (seen[0] != session.serial || seen[1] != session.paint.version) {
+                    seen[0] = session.serial; seen[1] = session.paint.version
+                    revision.intValue++
+                }
                 phase = session.phase
                 serial = session.serial
                 if (touchChanged) touchEpoch++
                 for (stroke in finished) {
-                    scope.launch {
-                        fill[stroke] = 0f
-                        animate(0f, 1f, animationSpec = tween(GAP_FILL_MS)) { value, _ -> fill[stroke] = value }
-                    }
+                    scope.launch { animate(0f, 1f, animationSpec = tween(GAP_FILL_MS)) { value, _ -> fill[stroke] = value } }
                     sparkles += stroke
                     scope.launch { delay(SPARKLE_SHOW_MS); sparkles.remove(stroke) }
                 }
@@ -159,27 +162,35 @@ internal fun TraceScene(session: TraceSession, onExit: () -> Unit) {
 
         val celebrating = phase == TracePhase.CELEBRATING
 
-        // The glyph box takes every touch that begins in it; only the first finger paints (see PrimaryPointer).
+        // One full-screen touch layer under everything, so a finger that lands anywhere (blank space, the side margins)
+        // and slides onto the path starts painting the moment it reaches it. The home and play-on buttons sit above
+        // it and take their own touches; a finger that lands on them never reaches this layer. Only the first finger
+        // paints (see PrimaryPointer). Positions are turned into glyph units relative to the glyph box.
+        val currentLayout by rememberUpdatedState(layout)
         Box(
             modifier = Modifier
-                .offset(x = layout.boxLeft.dp, y = layout.boxTop.dp)
-                .size(layout.boxSize.dp)
+                .fillMaxSize()
                 .pointerInput(session) {
                     try {
                         awaitPointerEventScope {
                             while (true) {
                                 val event = awaitPointerEvent()
-                                val unitPx = size.width / 100.0
+                                val box = currentLayout
+                                val unitPx = box.boxSize * density / 100.0
+                                val originX = box.boxLeft * density
+                                val originY = box.boxTop * density
                                 val finished = ArrayList<Int>()
                                 var touchChanged = false
                                 for (change in event.changes) {
                                     val id = change.id.value
+                                    val x = (change.position.x - originX) / unitPx
+                                    val y = (change.position.y - originY) / unitPx
                                     if (change.pressed && !change.previousPressed) {
                                         touchChanged = true
-                                        finished += session.pointerDown(id, change.position.x / unitPx, change.position.y / unitPx)
+                                        finished += session.pointerDown(id, x, y)
                                         change.consume()
                                     } else if (change.pressed) {
-                                        finished += session.pointerMove(id, change.position.x / unitPx, change.position.y / unitPx)
+                                        finished += session.pointerMove(id, x, y)
                                         change.consume()
                                     } else if (change.previousPressed) {
                                         touchChanged = true
@@ -199,6 +210,16 @@ internal fun TraceScene(session: TraceSession, onExit: () -> Unit) {
                         session.releaseAll() // the touch handler is going away mid-touch (screen left, window lost)
                     }
                 },
+        )
+
+        val paint = session.paint
+        val pathCache = remember(paint.glyph) { GlyphPathCache(paint.glyph) }
+
+        // The glyph box: drawing only, it takes no touches itself.
+        Box(
+            modifier = Modifier
+                .offset(x = layout.boxLeft.dp, y = layout.boxTop.dp)
+                .size(layout.boxSize.dp),
         ) {
             val pop = if (celebrating) {
                 rememberInfiniteTransition(label = "glyph-pop").animateFloat(
@@ -213,10 +234,10 @@ internal fun TraceScene(session: TraceSession, onExit: () -> Unit) {
                     scaleX = p; scaleY = p
                 },
             ) {
-                GlyphCanvas(session, revision, fill, walk)
+                GlyphCanvas(paint, pathCache, revision, fill, walk)
                 if (sparkles.isNotEmpty()) FinishedSparkles(session, sparkles)
-                if (celebrating) CelebrationEffects(session)
-                FrogMarker(session, revision, serial, celebrating, walk, layout.boxSize)
+                if (celebrating) CelebrationEffects(pathCache)
+                FrogMarker(session, revision, serial, celebrating, walk, layout.boxSize, layout.boxTop)
             }
         }
 
@@ -239,42 +260,51 @@ internal fun TraceScene(session: TraceSession, onExit: () -> Unit) {
 
 // ------------------------------------------------------------------ the glyph: guide, paint, cue
 
-/** The guide band, the paint (with its glow), the done lines and the paw-print direction cue. */
+/**
+ * The guide band, the paint (with its glow), the done lines and the paw-print direction cue. Two layers: the
+ * guide never changes for a glyph and size, so it is drawn from a cached path; the paint layer rebuilds only its
+ * own paths, and only when the painting changed.
+ */
 @Composable
-private fun GlyphCanvas(session: TraceSession, revision: State<Int>, fill: Map<Int, Float>, walk: Animatable<Float, *>) {
-    Box(
+private fun GlyphCanvas(paint: TracePaint, cache: GlyphPathCache, revision: State<Int>, fill: Map<Int, Float>, walk: Animatable<Float, *>) {
+    val guideLayer = remember(cache) {
         Modifier.fillMaxSize().drawWithCache {
-            revision.value // the painting changed: rebuild the paths below
-            val paint = session.paint
+            val guide = cache.ensure(size.width / 100f).guide
+            val dp = density
+            onDrawBehind { drawGuide(guide, dp) }
+        }
+    }
+    val paintLayer = remember(cache, paint) {
+        Modifier.fillMaxSize().drawWithCache {
+            revision.value // the painting changed: rebuild the paint paths below
             val unit = size.width / 100f
             val dp = density
+            val paths = cache.ensure(unit)
 
-            val guide = Path()
-            paint.glyph.paths.forEach { guide.addPath(it.toPath(unit)) }
-
+            // Paint under the finger: every stroke that is still open, or has only just finished and is filling its gap.
             val fingerPaint = Path()
-            paint.strokes.forEach { addRuns(fingerPaint, it.stroke, it.touched, unit) }
-            val settled = Path()          // finished strokes whose gap-fill has run its course
-            val settledLine = Path()
+            val settled = Path()          // finished strokes whose gap-fill has run its course, drawn whole
+            val filling = ArrayList<Int>()
             paint.strokes.forEachIndexed { i, s ->
-                if (s.done && (fill[i] ?: 1f) >= 1f) { settled.addPath(s.stroke.polyline(unit)); settledLine.addPath(s.stroke.polyline(unit)) }
+                if (s.done && (fill[i] ?: 1f) >= 1f) {
+                    settled.addPath(paths.polylines[i])
+                } else {
+                    addRuns(fingerPaint, s.stroke, s.touched, unit)
+                    if (s.done) filling += i
+                }
             }
             val marker = paint.marker()
             val cues = if (marker != null) paint.cues(marker) else emptyList()
 
             onDrawBehind {
-                drawGuide(guide, dp)
                 drawPaint(fingerPaint, dp)
                 drawPaint(settled, dp)
-                paint.strokes.forEachIndexed { i, s ->
+                for (i in filling) {
                     val a = fill[i] ?: 1f
-                    if (s.done && a < 1f) {
-                        val whole = s.stroke.polyline(unit)
-                        drawPaint(whole, dp, alpha = a)
-                        drawDoneLine(whole, dp, alpha = a)
-                    }
+                    drawPaint(paths.polylines[i], dp, alpha = a)
+                    drawDoneLine(paths.polylines[i], dp, alpha = a)
                 }
-                drawDoneLine(settledLine, dp)
+                drawDoneLine(settled, dp)
                 if (walk.value == 0f && !paint.isComplete) {
                     val alphas = listOf(0.95f, 0.65f, 0.4f)
                     cues.forEachIndexed { k, cue ->
@@ -285,8 +315,10 @@ private fun GlyphCanvas(session: TraceSession, revision: State<Int>, fill: Map<I
                     }
                 }
             }
-        },
-    )
+        }
+    }
+    Box(guideLayer)
+    Box(paintLayer)
 }
 
 /** Three sunshine sparkles beside each stroke that just finished, twinkling for about 1.8s. */
@@ -316,25 +348,31 @@ private fun FinishedSparkles(session: TraceSession, strokes: List<Int>) {
 
 /** A white shimmer along every stroke, sunshine sparkles and coral hearts around the glyph (about 2s, then it loops until play-on). */
 @Composable
-private fun CelebrationEffects(session: TraceSession) {
+private fun CelebrationEffects(cache: GlyphPathCache) {
     val transition = rememberInfiniteTransition(label = "celebration")
     val shimmer = transition.animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "shimmer")
     val twinkle = transition.animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = LinearEasing)), label = "sparkles")
     val hearts = transition.animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "hearts")
-    val glyph = session.paint.glyph
-    Canvas(Modifier.fillMaxSize()) {
-        val unit = size.width / 100f
-        glyph.strokes.forEachIndexed { i, s ->
-            drawShimmer(glyph.paths[i].toPath(unit), (s.length * unit).toFloat(), 6f * unit, shimmer.value)
+    // The stroke paths are built once for this glyph and size, not on every frame of the looping celebration.
+    val layer = remember(cache) {
+        Modifier.fillMaxSize().drawWithCache {
+            val unit = size.width / 100f
+            val paths = cache.ensure(unit)
+            onDrawBehind { drawCelebration(paths, unit, shimmer.value, twinkle.value, hearts.value) }
         }
-        for ((x, y, r, lag) in SPARKLES) {
-            val t = tri((twinkle.value + lag / 1.3f) % 1f)
-            drawSparkle(x * unit, y * unit, r * unit * (0.55f + 0.55f * t), PawSunshine, 0.6f + 0.4f * t)
-        }
-        for ((x, y, r, lag) in HEARTS) {
-            val p = (hearts.value + lag / 1.8f) % 1f
-            drawHeart(x * unit, (y + 1f - 3.5f * p) * unit, r * unit, PawCoral, 0.3f + 0.7f * tri(p))
-        }
+    }
+    Box(layer)
+}
+
+private fun DrawScope.drawCelebration(paths: GlyphPathCache, unit: Float, shimmer: Float, twinkle: Float, hearts: Float) {
+    paths.exact.forEachIndexed { i, path -> drawShimmer(path, paths.lengthsPx[i], 6f * unit, shimmer) }
+    for ((x, y, r, lag) in SPARKLES) {
+        val t = tri((twinkle + lag / 1.3f) % 1f)
+        drawSparkle(x * unit, y * unit, r * unit * (0.55f + 0.55f * t), PawSunshine, 0.6f + 0.4f * t)
+    }
+    for ((x, y, r, lag) in HEARTS) {
+        val p = (hearts + lag / 1.8f) % 1f
+        drawHeart(x * unit, (y + 1f - 3.5f * p) * unit, r * unit, PawCoral, 0.3f + 0.7f * tri(p))
     }
 }
 
@@ -366,6 +404,7 @@ private fun FrogMarker(
     celebrating: Boolean,
     walk: Animatable<Float, *>,
     boxDp: Float,
+    boxTopDp: Float,
 ) {
     revision.value // repositions as the paint grows
     val paint = session.paint
@@ -427,7 +466,8 @@ private fun FrogMarker(
                     slide.value
                 }
                 val lift = if (celebrating) {
-                    -HAPPY_HOP_DP * happyHop.value
+                    // On a short screen the happy hop is trimmed so the halo never runs off the top edge.
+                    -min(HAPPY_HOP_DP, max(0f, boxTopDp + base.y - HALO_FAR_DP / 2f - 2f)) * happyHop.value
                 } else {
                     -MARKER_BOB_DP * bob.value - MARKER_HOP_DP * sin(PI.toFloat() * hop.value)
                 }
@@ -447,19 +487,6 @@ private fun FrogMarker(
             drawCircle(Color.White, radius = RING_DP / 2f * density, center = c)
         }
         FrogFace(size = FROG_DP.dp, happy = celebrating)
-    }
-}
-
-/**
- * Paw Match's frog, its head cropped tight so it fills a square (Paw Kitchen's face drawing, which adds the
- * smile and the happy grin). [happy] swaps to the squeezed-shut-eyes grin.
- */
-@Composable
-internal fun FrogFace(size: Dp, happy: Boolean, modifier: Modifier = Modifier) {
-    val full = size * (80f / FROG_HALF_VIEW)
-    Box(modifier.size(size), contentAlignment = Alignment.Center) {
-        // The head circle is centred at (40, 46) on the 80 grid, six units below the grid's middle.
-        CustomerFace(Critter.FROG, happy = happy, modifier = Modifier.requiredSize(full).offset(y = -(size * (6f / FROG_HALF_VIEW))))
     }
 }
 

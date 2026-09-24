@@ -122,3 +122,27 @@ internal fun DrawScope.drawSparkle(x: Float, y: Float, radius: Float, color: Col
 internal fun DrawScope.drawHeart(x: Float, y: Float, size: Float, color: Color, alpha: Float = 1f) {
     withTransform({ translate(x, y); scale(size, size, Offset.Zero) }) { drawPath(HeartPath, color, alpha = alpha) }
 }
+
+/**
+ * The paths of one glyph at one size, built once and reused: the exact centrelines (drawn as the guide and
+ * as the shimmer), the union of them, and each stroke's sample polyline (drawn as finished paint). They
+ * never change while the glyph and the box size stay the same, so touches and animation frames must not
+ * rebuild them. Ask with [ensure] for the current pixels-per-glyph-unit; it rebuilds only if that changed.
+ */
+internal class GlyphPathCache(private val glyph: Glyph) {
+    private var unit = -1f
+    var exact: List<Path> = emptyList(); private set
+    var guide: Path = Path(); private set
+    var polylines: List<Path> = emptyList(); private set
+    var lengthsPx: List<Float> = emptyList(); private set
+
+    fun ensure(unit: Float): GlyphPathCache {
+        if (unit == this.unit) return this
+        this.unit = unit
+        exact = glyph.paths.map { it.toPath(unit) }
+        guide = Path().apply { exact.forEach { addPath(it) } }
+        polylines = glyph.strokes.map { it.polyline(unit) }
+        lengthsPx = glyph.strokes.map { (it.length * unit).toFloat() }
+        return this
+    }
+}

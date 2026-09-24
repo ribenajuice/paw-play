@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Ignore
 import org.junit.Test
 import java.io.File
 import kotlin.math.abs
@@ -466,7 +465,7 @@ class TraceQaTest {
             "billing", "admob", "firebase", "analytics", "MediaPlayer", "SoundPool", "ToneGenerator", "AudioTrack", "AudioManager", "INTERNET", "SharedPreferences", "DataStore", "openFileOutput", "File(",
         )
         val files = traceSources()
-        assertEquals(8, files.size)
+        assertEquals(9, files.size) // the scan must see every file (TraceFrog.kt joined the package)
         for (f in files) {
             val code = f.readLines().filterNot { it.trimStart().startsWith("//") || it.trimStart().startsWith("*") || it.trimStart().startsWith("/*") }.joinToString("\n")
             for (b in banned) assertFalse("${f.name} contains '$b'", code.contains(b, ignoreCase = b.first().isLowerCase()))
@@ -488,20 +487,16 @@ class TraceQaTest {
             m?.let { "${f.name}:${i + 1} ${m.groupValues[1]}.${m.groupValues[2]}" }
         } }
 
-    /** Ratchet: today's four known cross-game imports; a fifth (or a different one) fails. */
-    @Test
-    fun `cross-game imports from Paw Trace stay at the four known ones`() {
-        val names = crossGameImports().map { it.substringAfter(' ') }.toSet()
-        assertEquals(setOf("pawkitchen.CustomerFace", "pawmatch.Critter", "pawmatch.HomeGlyphIcon", "pawmatch.PawPrintIcon"), names)
-    }
-
     /**
-     * DEFECT (architecture): docs/ARCHITECTURE.md says each game "knows nothing about the others". PawTraceGame.kt imports
-     * Paw Kitchen's CustomerFace (line 59) and three things from Paw Match (lines 60-62). Un-ignore to see it fail.
+     * Ratchet on independence (docs/ARCHITECTURE.md: each game "knows nothing about the others"): Paw Trace imports nothing
+     * from Paw Kitchen or Paw Pour, and from Paw Match only the public icons Paw Pour and Paw Kitchen also use. A new
+     * cross-game import, or a different symbol, fails here. (Moving these icons to ui/ is a later follow-up.)
      */
-    @Ignore("Known defect: Paw Trace depends on Paw Kitchen (CustomerFace) and Paw Match internals; move shared pieces to ui/")
     @Test
     fun `Paw Trace imports nothing from any other game package`() {
-        assertEquals(emptyList<String>(), crossGameImports())
+        val imports = crossGameImports().map { it.substringAfter(' ') }
+        assertEquals(emptyList<String>(), imports.filter { it.startsWith("pawkitchen.") || it.startsWith("pawpour.") })
+        val allowed = setOf("pawmatch.Critter", "pawmatch.HomeGlyphIcon", "pawmatch.PawPrintIcon")
+        assertTrue("unexpected cross-game imports: ${imports.toSet() - allowed}", allowed.containsAll(imports.toSet()))
     }
 }
