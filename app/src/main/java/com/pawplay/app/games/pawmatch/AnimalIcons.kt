@@ -1,7 +1,6 @@
 package com.pawplay.app.games.pawmatch
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -209,10 +208,13 @@ fun StarBadgeIcon(modifier: Modifier = Modifier, tint: Color = PawSunshine) {
     }
 }
 
-/** The exit-to-home glyph, used inside every game (docs/DESIGN-SYSTEM.md). */
+/**
+ * The exit-to-home glyph, used inside every game (docs/DESIGN-SYSTEM.md). The door is a notch cut
+ * out of the house, so whatever button colour is behind the icon shows through it — on the white
+ * exit button and on the coloured win-screen button alike.
+ */
 @Composable
 fun HomeGlyphIcon(modifier: Modifier = Modifier, tint: Color = InkColor) {
-    val doorColor = MaterialTheme.colorScheme.surface
     Canvas(modifier = modifier) {
         val w = size.width
         val h = size.height
@@ -224,12 +226,15 @@ fun HomeGlyphIcon(modifier: Modifier = Modifier, tint: Color = InkColor) {
             lineTo(px(21f), py(11f))
             lineTo(px(18f), py(11f))
             lineTo(px(18f), py(20f))
+            lineTo(px(13.5f), py(20f))
+            lineTo(px(13.5f), py(13f))
+            lineTo(px(10.5f), py(13f))
+            lineTo(px(10.5f), py(20f))
             lineTo(px(6f), py(20f))
             lineTo(px(6f), py(11f))
             lineTo(px(3f), py(11f))
             close()
         }
         drawPath(house, color = tint)
-        drawRect(color = doorColor, topLeft = Offset(px(10.5f), py(13f)), size = Size(px(3f), py(7f)))
     }
 }
