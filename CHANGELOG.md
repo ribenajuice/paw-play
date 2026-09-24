@@ -7,7 +7,7 @@ All user-visible changes, in plain language, newest first. Maintained by the tec
 
 ## Unreleased
 
-Not in a build yet. These changes are on the Paw Pour, Paw Kitchen and Paw Trace branches, waiting for review and a test on a real phone.
+Not in a build yet. These changes are on the Paw Pour, Paw Kitchen, Paw Trace and Paw Blocks branches, waiting for review and a test on a real phone.
 
 - There is a new game on the home screen: **Paw Pour**. Tap a tube of coloured liquid to lift it, then tap another tube to pour. Sort the colours until each one fills its own tube.
 - Every Paw Pour round can be finished. The game checks before it deals.
@@ -28,3 +28,9 @@ Not in a build yet. These changes are on the Paw Pour, Paw Kitchen and Paw Trace
 - It starts with lines and curves, then shapes, then the numbers 1 to 9 and 0, then the capital letters, and then keeps going with a random mix of all 46. Every third one is an easier one from before. Nobody picks a level.
 - Only the first finger paints, so a second finger or a resting palm can't smear paint around.
 - Paw Trace has no sound yet, like the other games. Leaving for the home screen starts it again from the first line.
+- There is a fifth new game on the home screen: **Paw Blocks**. Three blocks wait in a tray. Drag one onto the board; a soft blue outline shows where it will land, and it snaps in when you let go. Fill a whole row or column and it sparkles away, with a friendly animal peeking over the corner of the board. Nothing above or beside it falls or moves.
+- A wrong drop is gentle: the block glides back to the tray. There is no sound, no red and no lost turn. Only the first finger on the screen moves a block, so other fingers do nothing.
+- The board starts empty at 5 by 5 and grows a little as your child clears lines, up to 9 by 9, and new block shapes arrive one at a time: dots and short bars first, then longer bars, squares, corners, rectangles and the long bar of 5. Nobody picks a level.
+- Every block has its own colour and its own small picture on each square (a star, heart, drop, fish, leaf, bone, paw or moon), so children who can't tell colours apart can still play.
+- Three new blocks slide in together after all three are used. At least one always has a place to go. If the board still fills up so that none of the blocks left can be placed, it quietly sparkles the fullest rows clear after a moment. There is no message, no score, no counter and no "game over".
+- Paw Blocks has no sound yet, like the other games. Leaving for the home screen starts it again on an empty board.

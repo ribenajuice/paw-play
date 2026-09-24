@@ -25,9 +25,15 @@ The home screen shows one picture tile per game. Tap a tile to play.
   - After all 46 it keeps going with a random mix.
   - It has no sound yet.
 
-All four games start over from the beginning when you leave to the home screen. Nothing is saved.
+- **Paw Blocks** — a block-fitting puzzle with nothing falling and no clock. Three blocks wait in a tray. Drag one onto the board and a soft blue outline shows where it will land; let go and it snaps in. Fill a whole row or column and it sparkles away while a little animal peeks over the corner of the board. A wrong drop just glides back to the tray.
+  - The board starts empty at 5 by 5 and grows a little as your child clears lines, up to 9 by 9, while new block shapes join in one at a time. Nobody picks a level.
+  - Every block has its own colour and its own small picture, so children who can't tell colours apart can still play.
+  - Three new blocks arrive together, and at least one always has a place to go. If the board ever fills so that none of them fits, it quietly sparkles a few rows clear after a moment. There is no score, no counter and no "game over".
+  - It has no sound yet.
 
-More games are planned. See `docs/PRD.md`. Paw Blocks is in progress and not part of the app yet. Paw Trace is built and waiting for review.
+All five games start over from the beginning when you leave to the home screen. Nothing is saved.
+
+More games are planned. See `docs/PRD.md`. Paw Pour, Paw Kitchen, Paw Trace and Paw Blocks are built and waiting for review and a test on a real phone.
 
 ## Build it on your computer
 
