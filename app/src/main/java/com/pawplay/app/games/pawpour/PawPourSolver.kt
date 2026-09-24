@@ -3,7 +3,9 @@ package com.pawplay.app.games.pawpour
 /**
  * Can this Paw Pour board still be finished? Used two ways: to prove every generated round is
  * winnable before the child sees it, and to notice after a pour that the round has become
- * unwinnable so the game can gently un-pour (docs/PRD.md stories 14 and 17).
+ * unwinnable so the game can gently un-pour (docs/PRD.md stories 14 and 17). "Finished" is
+ * [Board.isSolved]: every colour gathered into one full tube, so a colour split across two
+ * part-full tubes still has a merging pour left to play.
  *
  * It is a depth-first search over positions, using the same pour rules as PawPourLogic.kt and
  * treating two positions as the same when they differ only by tube order. The boards are small
@@ -67,7 +69,8 @@ private class Search(private val capacity: Int, private val budget: Int) {
         return run
     }
 
-    private fun isSolved(tubes: IntArray): Boolean = tubes.all { it == 0 || runLength(it) == length(it) }
+    private fun isSolved(tubes: IntArray): Boolean =
+        tubes.all { it == 0 || (length(it) == capacity && runLength(it) == capacity) }
 
     private fun keyOf(tubes: IntArray): Key {
         val sorted = tubes.copyOf().also { it.sort() }

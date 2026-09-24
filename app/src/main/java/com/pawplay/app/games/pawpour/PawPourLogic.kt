@@ -17,14 +17,39 @@ import kotlin.random.Random
 /** Ordered brightest to darkest (docs/DESIGN-SYSTEM.md), so rounds can take "the first N". */
 enum class BandColor { SUNSHINE, BUBBLEGUM, SKY, CORAL, LEAF, GRAPE, MIDNIGHT }
 
+/**
+ * The band colours as plain 0xRRGGBB numbers (Compose-free, so their brightness ladder is
+ * unit-tested; BandStyle.kt turns them into Compose colours). Each step down the enum is at least
+ * 1.3x darker in luminance contrast ratio than the one before, so all seven stay apart in greyscale
+ * (docs/PRD.md story 13, docs/DESIGN-SYSTEM.md), while each keeps its hue and its own mark.
+ */
+fun BandColor.rgb(): Int = when (this) {
+    BandColor.SUNSHINE -> 0xFFEB70
+    BandColor.BUBBLEGUM -> 0xFFA8CE
+    BandColor.SKY -> 0x28ACE6
+    BandColor.CORAL -> 0xF04520
+    BandColor.LEAF -> 0x177A3D
+    BandColor.GRAPE -> 0x5F36B0
+    BandColor.MIDNIGHT -> 0x223475
+}
+
+/** The mark on a band is white on the darker four and ink (0x2B2320) on the lighter three. */
+fun BandColor.markIsWhite(): Boolean = ordinal >= BandColor.CORAL.ordinal
+
 data class Board(
     /** Each tube's bands, bottom first. */
     val tubes: List<List<BandColor>>,
     /** Bands a tube can hold; every colour has exactly this many bands. */
     val capacity: Int,
 ) {
-    /** Won: every tube is empty or holds a single colour (docs/PRD.md story 15). */
-    val isSolved: Boolean get() = tubes.all { it.isSingleColour() }
+    /**
+     * Won: every colour is gathered into one tube (docs/PRD.md story 15, founder's rule of
+     * 2026-09-25). Every colour has exactly [capacity] bands, so that is the same as every
+     * non-empty tube being full and a single colour — a colour split across two part-full tubes
+     * is not a win. It also means the win and the finished-tube border/sparkle
+     * ([isTubeComplete]) always agree.
+     */
+    val isSolved: Boolean get() = tubes.all { it.isEmpty() || (it.size == capacity && it.isSingleColour()) }
 }
 
 private fun List<BandColor>.isSingleColour(): Boolean = all { it == first() }
@@ -211,13 +236,24 @@ fun newRoundState(round: Int, random: Random = Random.Default): RoundState =
 
 fun RoundState.nextRound(random: Random = Random.Default): RoundState = newRoundState(round + 1, random)
 
+/**
+ * The most pours a round remembers. Auto-undo only ever needs the pours since the latest safe
+ * position (in practice the last one, since every pour is checked), so older ones are dropped and
+ * a long round can't grow without bound.
+ */
+const val MAX_HISTORY = 100
+
 /** Applies a pour and remembers it. Returns this same state if the pour isn't legal. */
 fun RoundState.poured(from: Int, to: Int): RoundState {
     val count = board.pourCount(from, to)
     if (count == 0) return this
+    val extended = history + Step(before = board, move = Move(from, to, count))
+    // Never drop a step that auto-undo could still need (those after safeDepth).
+    val dropped = minOf(extended.size - MAX_HISTORY, safeDepth).coerceAtLeast(0)
     return copy(
         board = board.poured(from, to),
-        history = history + Step(before = board, move = Move(from, to, count)),
+        history = extended.drop(dropped),
+        safeDepth = safeDepth - dropped,
     )
 }
 

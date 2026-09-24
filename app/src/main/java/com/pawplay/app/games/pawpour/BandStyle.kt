@@ -21,22 +21,24 @@ import kotlin.math.sqrt
  * How each [BandColor] looks: a colour plus its own mark, so no two colours share a mark and
  * none needs hue to be told apart (docs/PRD.md story 13). Band colours are content colours, like
  * the critter palette in Color.kt — not theme tokens — and live here so adding this game touches
- * nothing outside its own package. Values are from docs/DESIGN-SYSTEM.md, "Paw Pour".
+ * nothing outside its own package. Values are in docs/DESIGN-SYSTEM.md, "Paw Pour".
  */
 internal enum class Mark { STAR, HEART, RING, TRIANGLE, DIAMOND, PLUS, MOON }
 
 internal data class BandStyle(val color: Color, val mark: Mark, val markColor: Color)
 
-private val MarkWhite = Color.White
-
-internal fun BandColor.style(): BandStyle = when (this) {
-    BandColor.SUNSHINE -> BandStyle(Color(0xFFFFEB70), Mark.STAR, InkColor)
-    BandColor.BUBBLEGUM -> BandStyle(Color(0xFFFFA0CA), Mark.HEART, InkColor)
-    BandColor.SKY -> BandStyle(Color(0xFF55BDEB), Mark.RING, InkColor)
-    BandColor.CORAL -> BandStyle(Color(0xFFF25F3F), Mark.TRIANGLE, MarkWhite)
-    BandColor.LEAF -> BandStyle(Color(0xFF1E9E4F), Mark.DIAMOND, MarkWhite)
-    BandColor.GRAPE -> BandStyle(Color(0xFF5B33A8), Mark.PLUS, MarkWhite)
-    BandColor.MIDNIGHT -> BandStyle(Color(0xFF1F2F6B), Mark.MOON, MarkWhite)
+internal fun BandColor.style(): BandStyle {
+    val mark = when (this) {
+        BandColor.SUNSHINE -> Mark.STAR
+        BandColor.BUBBLEGUM -> Mark.HEART
+        BandColor.SKY -> Mark.RING
+        BandColor.CORAL -> Mark.TRIANGLE
+        BandColor.LEAF -> Mark.DIAMOND
+        BandColor.GRAPE -> Mark.PLUS
+        BandColor.MIDNIGHT -> Mark.MOON
+    }
+    // Colours come from BandColor.rgb() (PawPourLogic.kt) so their brightness ladder is unit-tested.
+    return BandStyle(Color(0xFF000000L or rgb().toLong()), mark, if (markIsWhite()) Color.White else InkColor)
 }
 
 // Every mark is authored in a unit box (roughly -0.5..0.5) and scaled when drawn, so one drawing

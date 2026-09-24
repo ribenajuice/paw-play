@@ -53,15 +53,17 @@ Chrome (cream background, white surfaces, coral/sunshine/sky/leaf, ink, radii, 5
 
 **Band colours (content colours, not theme tokens).** Seven, each with its own mark, ordered brightest to darkest so they stay apart in greyscale:
 
-| # | Name | Hex | Mark | Mark colour |
-|---|---|---|---|---|
-| 1 | Sunshine | `#FFEB70` | star | ink `#2B2320` |
-| 2 | Bubblegum | `#FFA0CA` | heart | ink |
-| 3 | Sky | `#55BDEB` | ring | ink |
-| 4 | Coral | `#F25F3F` | triangle | white |
-| 5 | Leaf | `#1E9E4F` | diamond | white |
-| 6 | Grape | `#5B33A8` | plus | white |
-| 7 | Midnight | `#1F2F6B` | moon (crescent) | white |
+| # | Name | Hex | Mark | Mark colour | Contrast vs the one above |
+|---|---|---|---|---|---|
+| 1 | Sunshine | `#FFEB70` | star | ink `#2B2320` | (lightest) |
+| 2 | Bubblegum | `#FFA8CE` | heart | ink | 1.48 |
+| 3 | Sky | `#28ACE6` | ring | ink | 1.44 |
+| 4 | Coral | `#F04520` | triangle | white | 1.46 |
+| 5 | Leaf | `#177A3D` | diamond | white | 1.43 |
+| 6 | Grape | `#5F36B0` | plus | white | 1.47 |
+| 7 | Midnight | `#223475` | moon (crescent) | white | 1.45 |
+
+Contrast is the WCAG luminance ratio between neighbouring rows; every pair of colours, not just neighbours, must be at least 1.3 (unit-tested in `PawPourRobustnessTest`), and every mark at least 3 against its band. Re-tuned 2026-09-25: QA had measured Coral vs Leaf 1.07, Bubblegum vs Sky 1.13 and Grape vs Midnight 1.48 with the first values (Bubblegum `#FFA0CA`, Sky `#55BDEB`, Coral `#F25F3F`, Leaf `#1E9E4F`, Grape `#5B33A8`, Midnight `#1F2F6B`), which fails greyscale. Hues and marks are unchanged; only lightness (and a little saturation) moved. The app-wide sunshine, sky and leaf state-border colours are separate and untouched.
 
 Rounds use the first N colours in this order (round 1 uses 3 fixed for maximum contrast: Sunshine, Sky, Coral; the code may pick any N as long as no two share a mark). Marks are solid shapes with softly rounded corners, drawn at 60% of the smaller band side, centred, one per band. Never letters or numbers.
 
