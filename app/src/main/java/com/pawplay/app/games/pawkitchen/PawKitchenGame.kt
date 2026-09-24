@@ -103,6 +103,7 @@ private const val SERVE_Y = 256f
 private const val SERVE_SIZE = 88f
 private const val TILE = 96f
 private const val TILE_GAP = 12f
+private const val MIN_TILE_GAP = 8f // dp, PRD story 22
 private const val TRAY_TOP = 404f
 private const val TRAY_BOTTOM_MARGIN = 4f
 
@@ -170,8 +171,9 @@ internal fun KitchenScene(
                 .drawBehind {
                     drawRoundRect(Color(0x122B2320), Offset(0f, 3f * s * density), size, CornerRadius(26f * s * density))
                 }
-                .clip(RoundedCornerShape(len(26f)))
-                .background(Color.White),
+                // Not clipped: a picture's green glow reaches past the bubble's rounded edge on purpose,
+                // so it fades softly instead of being cut into a flat sliver.
+                .background(Color.White, RoundedCornerShape(len(26f))),
             contentAlignment = Alignment.Center,
         ) {
             OrderPictures(spec, state, s)
@@ -180,17 +182,21 @@ internal fun KitchenScene(
         Box(Modifier.offset(x(207f), y(99f)).size(len(8f)).graphicsLayer { alpha = arrive.value }.clip(CircleShape).background(Color.White))
 
         // Customer, then the counter sits over the bottom of their head, then their paws on the edge.
-        HappyBounce(active = serving) {
+        // The bounce wrapper carries the customer's own position and size, so its tilt pivots about the
+        // customer's centre and they bounce in place instead of swaying about a point off to the left.
+        HappyBounce(
+            active = serving,
+            modifier = Modifier.offset(x = x(CUSTOMER_X), y = y(CUSTOMER_Y)).size(len(CUSTOMER_SIZE)),
+        ) {
             Box(
                 modifier = Modifier
-                    .offset(x = x(CUSTOMER_X), y = y(CUSTOMER_Y))
-                    .size(len(CUSTOMER_SIZE))
+                    .fillMaxSize()
                     .graphicsLayer {
                         translationX = (1f - arrive.value) * 140f * s * density
                         alpha = arrive.value
                     },
             ) {
-                CustomerFace(state.customer, happy = serving, modifier = Modifier.size(len(CUSTOMER_SIZE)))
+                CustomerFace(state.customer, happy = serving, modifier = Modifier.fillMaxSize())
             }
         }
         // Counter: a full-width band with a lighter lip and a darker edge.
@@ -245,16 +251,26 @@ internal fun KitchenScene(
             )
         }
 
-        // Tray: 96dp tiles, all on screen, centred in the space under the counter.
+        // Tray: 96dp tiles at design size, all on screen, centred in the space under the counter. Tiles never
+        // drop below the 48dp touch floor (nor the gaps below 8dp), however short the window is.
+        val tile = max(TILE * s, TOUCH_FLOOR)
+        val gap = max(TILE_GAP * s, MIN_TILE_GAP)
         val rows = trayRows(state.tray.size)
-        val blockH = rows.size * TILE + (rows.size - 1) * TILE_GAP
-        // Centred in the space the design gives the tray. On a taller screen the spare height stays below
-        // the tray instead of opening a gap between the counter and the tray.
-        val trayTop = TRAY_TOP + ((DESIGN_H - TRAY_BOTTOM_MARGIN) - TRAY_TOP - blockH).coerceAtLeast(0f) / 2f
+        val blockH = rows.size * tile + (rows.size - 1) * gap
+        val regionTop = TRAY_TOP * s
+        val regionBottom = (DESIGN_H - TRAY_BOTTOM_MARGIN) * s
+        // Centred in the region under the counter. On a taller screen the spare height stays below the tray
+        // instead of opening a gap. On a window too short for the block the tray keeps its size and moves up
+        // over the counter's empty lower part rather than shrinking its tiles or running off the screen.
+        val trayTop = if (blockH <= regionBottom - regionTop) {
+            regionTop + (regionBottom - regionTop - blockH) / 2f
+        } else {
+            (maxHeight.value - blockH - TRAY_BOTTOM_MARGIN * s).coerceAtLeast(0f)
+        }
         var index = 0
         rows.forEachIndexed { rowIndex, count ->
-            val rowW = count * TILE + (count - 1) * TILE_GAP
-            val rowLeft = (DESIGN_W - rowW) / 2f
+            val rowW = count * tile + (count - 1) * gap
+            val rowLeft = (maxWidth.value - rowW) / 2f
             repeat(count) { col ->
                 val ingredient = state.tray[index++]
                 TrayTile(
@@ -262,11 +278,11 @@ internal fun KitchenScene(
                     ingredient = ingredient,
                     onDish = ingredient in state.onDish,
                     dimmed = serving,
-                    s = s,
+                    s = tile / TILE, // the tile's own scale: its border, corner and picture follow its size
                     onClick = { onToggle(ingredient) },
                     modifier = Modifier.offset(
-                        x = x(rowLeft + col * (TILE + TILE_GAP)),
-                        y = y(trayTop + rowIndex * (TILE + TILE_GAP)),
+                        x = (rowLeft + col * (tile + gap)).dp,
+                        y = (trayTop + rowIndex * (tile + gap)).dp,
                     ),
                 )
             }
@@ -491,9 +507,9 @@ private fun HopAndSparkle(s: Float, content: @Composable () -> Unit) {
 // ------------------------------------------------------------------ happy customer
 
 @Composable
-private fun HappyBounce(active: Boolean, content: @Composable () -> Unit) {
+private fun HappyBounce(active: Boolean, modifier: Modifier, content: @Composable () -> Unit) {
     if (!active) {
-        content()
+        Box(modifier) { content() }
         return
     }
     val transition = rememberInfiniteTransition(label = "customer-bounce")
@@ -507,7 +523,7 @@ private fun HappyBounce(active: Boolean, content: @Composable () -> Unit) {
         infiniteRepeatable(keyframes { durationMillis = 1000; 0f at 0; -4f at 300; 4f at 650; 0f at 1000 }),
         label = "tilt",
     )
-    Box(modifier = Modifier.graphicsLayer { translationY = -up * density; rotationZ = tilt }) { content() }
+    Box(modifier = modifier.graphicsLayer { translationY = -up * density; rotationZ = tilt }) { content() }
 }
 
 /** About two seconds of sunshine sparkles and coral hearts drifting around the happy customer. No coins, stars or words. */
