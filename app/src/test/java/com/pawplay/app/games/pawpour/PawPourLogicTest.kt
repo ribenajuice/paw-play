@@ -81,9 +81,9 @@ class PawPourLogicTest {
     // ---- Winning ----
 
     @Test
-    fun `solved means every tube is empty or one colour`() {
+    fun `solved means every colour is gathered into one full tube`() {
         assertTrue(board(3, listOf(SKY, SKY, SKY), none, listOf(CORAL, CORAL, CORAL)).isSolved)
-        assertTrue(board(3, listOf(SKY, SKY), listOf(SKY), none).isSolved) // one colour per tube, PRD story 15
+        assertFalse(board(3, listOf(SKY, SKY), listOf(SKY), none).isSolved) // a colour split over two tubes is not a win (founder, 2026-09-25)
         assertFalse(board(3, listOf(SKY, SKY, CORAL), none, listOf(CORAL, CORAL, SKY)).isSolved)
         assertFalse(board(3, listOf(SKY, CORAL), none).isSolved)
     }
@@ -102,7 +102,9 @@ class PawPourLogicTest {
         var state = RoundState(1, board(2, listOf(SKY, CORAL), listOf(CORAL, SKY), none))
         state = state.poured(0, 2) // coral to the empty tube: [sky] [coral, sky] [coral]
         assertFalse(state.isWon)
-        state = state.poured(1, 0)  // sky onto sky: [sky, sky] [coral] [coral]
+        state = state.poured(1, 0)  // sky onto sky: [sky, sky] [coral] [coral]: coral still split
+        assertFalse(state.isWon)
+        state = state.poured(1, 2)  // coral onto coral: [sky, sky] [] [coral, coral]
         assertTrue(state.isWon)
     }
 
