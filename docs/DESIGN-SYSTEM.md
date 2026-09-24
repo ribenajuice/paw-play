@@ -202,7 +202,8 @@ The full data lives in `docs/glyphs/paw-trace-glyphs.md` (id, stage, strokes as 
 - **Layout on other phones.** The glyph box is at most 320dp (the validated reference) and at least 288dp. Side margins are 20dp and squeeze to 16dp on a 320dp-wide phone before the box shrinks. The box is centred vertically unless that would leave less than 16dp to the home button or the play-on button; the play-on button's bottom margin (44dp at the reference) can shrink to 12dp before the glyph moves. Under about 496dp of usable height the play-on button may overlap the glyph's foot (it only exists on the celebration); tell the ui-designer if a real phone that small matters.
 - **Touch failsafes.** Only the first finger paints. A finger that landed first but has never been on a path yields to a later finger that lands on one, so a resting palm cannot block painting. A finger still down from the last glyph does not paint the next one until it lifts and lands again.
 - **Paint corners.** Round caps and joins are asked for everywhere; on-device Android draws them as designed.
-- **Frog.** Paw Kitchen's `CustomerFace` for the frog (the same face plus the smile and happy grin), cropped tight to a 54 of 80 window.
+- **Frog.** Drawn inside the Paw Trace package (same colours and recipe as Paw Kitchen's customer frog: the smile and the happy grin), cropped tight to a 54 of 80 window.
+- **Touch area.** Wider than the design table says: the whole screen below the buttons takes the finger, so a swipe that starts in the blank space and slides onto the path paints when it reaches it. The home and play-on buttons still take their own touches. On a short screen the happy frog's hop is trimmed so its halo stays on screen.
 - **Silent.** No sound yet, like every game; the chime and happy sound wait for the founder's app-wide decision.
 
 ### Decisions awaiting founder OK (mockup review)
