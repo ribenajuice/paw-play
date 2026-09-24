@@ -87,4 +87,3 @@ Rationale: round 1 has three spare tubes so a 2-year-old can succeed almost by a
 ## Open questions
 - None blocking Milestone 1. App name defaulted to **Paw Play** (the hub) with **Paw Match** as the first game inside it — founder can redirect either name at any time; it's a content change, not an architecture one.
 - Card theme for Paw Match itself defaulted to friendly animals — same, a pure content swap.
-- **Milestone 2, needs founder's answer before build:** the founder's decision was to rewind when "no useful pour is left". We read that broadly (story 17): the game also rewinds when pours are still possible but the round can no longer be finished, because otherwise a child could shuffle forever in a position that can't be won. Is that the intent? Default if no answer: yes, broad reading.
