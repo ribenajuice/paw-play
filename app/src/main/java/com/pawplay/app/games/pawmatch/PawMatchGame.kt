@@ -8,7 +8,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,52 +32,37 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.pawplay.app.games.MiniGame
+import com.pawplay.app.ui.AdaptiveSquareGrid
 import com.pawplay.app.ui.theme.PawCoral
 import com.pawplay.app.ui.theme.PawLeaf
 import com.pawplay.app.ui.theme.PawSky
 import com.pawplay.app.ui.theme.PawSunshine
 import kotlinx.coroutines.delay
-import kotlin.math.ceil
 
 private const val MISMATCH_DELAY_MS = 700L
 private val CARD_GAP = 16.dp
 private val MAX_CARD_SIZE = 170.dp
 private val MIN_CARD_SIZE = 48.dp // touch-target floor, docs/DESIGN-SYSTEM.md
 
-/**
- * Picks however many columns (2-4) leave the biggest square card once
- * [cardCount] cards are laid out in that many columns within the given
- * space — never scrolling, per the founder's on-device playtest feedback
- * (a scrollbar past 8 cards wasn't intuitive for a 4-year-old). See
- * docs/DECISIONS.md.
- */
-private fun bestColumnCount(cardCount: Int, maxWidth: Dp, maxHeight: Dp): Int =
-    (2..4).maxByOrNull { columns ->
-        val rows = ceil(cardCount / columns.toFloat()).toInt()
-        val cellWidth = (maxWidth - CARD_GAP * (columns - 1)) / columns
-        val cellHeight = (maxHeight - CARD_GAP * (rows - 1)) / rows
-        minOf(cellWidth, cellHeight)
-    } ?: 2
-
 object PawMatchGame : MiniGame {
     override val id = "paw-match"
-    override val icon: @Composable () -> Unit = { PawMatchTileIcon() }
+    override val icon: @Composable (Dp) -> Unit = { size -> PawMatchTileIcon(size) }
     override val content: @Composable (onExit: () -> Unit) -> Unit = { onExit -> PawMatchScreen(onExit) }
 }
 
 @Composable
-private fun PawMatchTileIcon() {
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-        FoxIcon(modifier = Modifier.size(88.dp))
+private fun PawMatchTileIcon(size: Dp) {
+    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(size)) {
+        FoxIcon(modifier = Modifier.size(size * 0.4f))
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .size(34.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(size * 0.155f)
+                .clip(RoundedCornerShape(size * 0.055f))
                 .background(PawSunshine),
             contentAlignment = Alignment.Center,
         ) {
-            PawPrintIcon(modifier = Modifier.size(20.dp), tint = PawCoral)
+            PawPrintIcon(modifier = Modifier.size(size * 0.09f), tint = PawCoral)
         }
     }
 }
@@ -108,36 +92,22 @@ private fun PawMatchScreen(onExit: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             ExitButton(onClick = onExit, modifier = Modifier.padding(20.dp))
-            BoxWithConstraints(
+            AdaptiveSquareGrid(
+                itemCount = round.cards.size,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                val cardCount = round.cards.size
-                val columns = bestColumnCount(cardCount, maxWidth, maxHeight)
-                val rows = ceil(cardCount / columns.toFloat()).toInt()
-                val cellWidth = (maxWidth - CARD_GAP * (columns - 1)) / columns
-                val cellHeight = (maxHeight - CARD_GAP * (rows - 1)) / rows
-                val cardSize = minOf(cellWidth, cellHeight, MAX_CARD_SIZE).coerceAtLeast(MIN_CARD_SIZE)
-
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(CARD_GAP),
-                ) {
-                    round.cards.chunked(columns).forEach { rowCards ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(CARD_GAP)) {
-                            rowCards.forEach { card ->
-                                GameCard(
-                                    card = card,
-                                    size = cardSize,
-                                    onClick = { round = round.tapCard(card.id) },
-                                )
-                            }
-                        }
-                    }
-                }
+                gap = CARD_GAP,
+                maxItemSize = MAX_CARD_SIZE,
+                minItemSize = MIN_CARD_SIZE,
+            ) { index, size ->
+                val card = round.cards[index]
+                GameCard(
+                    card = card,
+                    size = size,
+                    onClick = { round = round.tapCard(card.id) },
+                )
             }
         }
 

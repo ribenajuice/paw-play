@@ -12,6 +12,12 @@ Format:
 
 ---
 
+## 2026-09-24 — Home screen menu built for ~a dozen games from the start
+- **Context**: founder confirmed the long-term plan is roughly a dozen small games on the shelf, and asked for "a menu where we can select the game from" as the next step, ahead of brainstorming which games. The home screen already existed but only rendered one tile (`games.size == 1` special case) and hadn't been exercised with a real multi-tile grid.
+- **Decision**: extracted the adaptive-column layout from the 2026-09-23 entry below into a shared `AdaptiveSquareGrid` composable and used it for both the home screen's tile grid and Paw Match's card grid, instead of duplicating the logic or leaving the home screen's multi-game case untested. Also changed `MiniGame.icon` to take the tile's rendered size as a parameter, since a fixed-size icon (tuned for one 220dp tile) would have broken the same way the fixed-size card grid did once there are enough tiles to shrink below that.
+- **Alternatives**: keep the `games.size == 1` special case and defer the real grid until game #2 actually exists — rejected; the whole point of raising this now is to not rediscover the same "works at N=1, breaks at N=5" problem later, the way the scrolling-grid bug happened.
+- **Consequences**: adding game #2 (Milestone 2) should just work visually — two tiles side by side, both sized by the same algorithm — with nothing to revisit in `HomeScreen.kt` itself.
+
 ## 2026-09-23 — Adaptive column count instead of a fixed 2-column scrolling grid
 - **Context**: first on-device playtest (founder, real phone) found that past 8 cards (4 pairs) the fixed-2-column grid overflowed the screen and introduced a scrollbar — not intuitive for a 4-year-old, and contrary to the "grid getting bigger is the only difficulty signal" intent in `docs/PRD.md`. The original 2026-09-22 progressive-difficulty ADR below assumed a fixed 2-column layout that was never actually correct.
 - **Decision**: `PawMatchScreen` now measures its available space (`BoxWithConstraints`) and picks whichever column count from 2–4 yields the largest square card that still fits every card on screen with no scrolling, down to a 48dp floor. More pairs can mean more columns, not just more rows.

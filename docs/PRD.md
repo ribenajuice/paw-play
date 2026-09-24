@@ -15,6 +15,8 @@ A toddler can open the app to a picture-only home screen, tap a game tile, play 
 ## Product shape
 This is a **hub app**: one home screen showing a shelf of game tiles (icons only, no labels needed), each tile launching a self-contained mini-game. We are not building every game up front — Milestone 1 ships the hub with exactly **one** working game (the matching game originally scoped, now the first tile). Each future `/feature` adds one more game to the shelf; the hub itself doesn't change shape to do that. See `docs/ARCHITECTURE.md` for how a new game gets added without touching the others.
 
+**Long-term target: roughly a dozen small games on the shelf**, built up one at a time over many `/feature` runs, not a fixed roadmap set now. The home screen's tile grid is built to reflow into more columns as tiles are added (see `docs/ARCHITECTURE.md`'s `AdaptiveSquareGrid`), so this was accounted for from the shelf's first version rather than something to rework later at tile #5 or #10.
+
 ## Milestones
 
 ### Milestone 1 — Walking skeleton
