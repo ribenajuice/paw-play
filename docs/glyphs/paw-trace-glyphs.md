@@ -95,6 +95,6 @@ letter-Q   | M50,12 C32,12 18,29 18,50 C18,71 32,88 50,88 C68,88 82,71 82,50 C82
 
 ## Counts and checks
 
-- 5 + 5 + 10 + 26 = 46 glyphs. Multi-stroke: cross 2, 4 (2), 5 (2), 9 (2), I 3, T 2, H 3, E 4, F 3, A 3, M 3, N 3, K 2, Y 2, D 2, P 2, B 3, R 3, Q 2. Everything else is one stroke.
+- 5 + 5 + 10 + 26 = 46 glyphs. Multi-stroke: cross 2, 4 (2), 5 (2), 9 (2), I 3, T 2, H 3, E 4, F 3, A 3, M 3, N 3, K 2, Y 2, D 2, P 2, B 3, R 3, Q 2, X 2. Everything else is one stroke.
 - Spacing rule the data was drawn to: centrelines of strokes that do not join stay at least 20 units apart (band 17.5 units at the 320dp reference box, so a gap of at least 2.5 units remains between bands), and joined strokes simply overlap where they meet. Tightest cases: Q tail start to the ring (about 20), digit 3 tip to its middle cusp (about 33), G bar to the C arm tip (30).
 - The mockup's "Show 64 dp paint corridor" switch overlays the band and corridor on every card of the glyph sheet so any overlap can be reviewed by eye.

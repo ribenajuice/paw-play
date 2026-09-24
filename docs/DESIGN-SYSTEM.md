@@ -198,6 +198,13 @@ The full data lives in `docs/glyphs/paw-trace-glyphs.md` (id, stage, strokes as 
 - **Measuring coverage:** sample each stroke's path every 1.5 units (`PathMeasure`); a sample is covered once the finger's nearest point on that stroke lies within 3 units of it (see the paint rules). A stroke is done at 85% of samples covered. Because a closed shape's first and last sample are the same spot, this needs no special case.
 - **Adding a glyph later:** add an id, a stage and its strokes. Nothing in the layout, colours or markers changes.
 
+### Added by the developer while building
+- **Layout on other phones.** The glyph box is at most 320dp (the validated reference) and at least 288dp. Side margins are 20dp and squeeze to 16dp on a 320dp-wide phone before the box shrinks. The box is centred vertically unless that would leave less than 16dp to the home button or the play-on button; the play-on button's bottom margin (44dp at the reference) can shrink to 12dp before the glyph moves. Under about 496dp of usable height the play-on button may overlap the glyph's foot (it only exists on the celebration); tell the ui-designer if a real phone that small matters.
+- **Touch failsafes.** Only the first finger paints. A finger that landed first but has never been on a path yields to a later finger that lands on one, so a resting palm cannot block painting. A finger still down from the last glyph does not paint the next one until it lifts and lands again.
+- **Paint corners.** Round caps and joins are asked for everywhere; on-device Android draws them as designed.
+- **Frog.** Paw Kitchen's `CustomerFace` for the frog (the same face plus the smile and happy grin), cropped tight to a 54 of 80 window.
+- **Silent.** No sound yet, like every game; the chime and happy sound wait for the founder's app-wide decision.
+
 ### Decisions awaiting founder OK (mockup review)
 Grape for the tile badge and every glyph's paint; a frog as the marker (alternative: plain glowing dot); paw prints as the direction cue instead of arrows; pale lavender guide with an outline and dotted centre; one big green paw button on the celebration with home staying in its corner; the letter, digit and shape drawings (capital I with bars, closed 4, flagged 1).
 

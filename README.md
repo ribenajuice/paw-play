@@ -19,10 +19,15 @@ The home screen shows one picture tile per game. Tap a tile to play.
   - Orders start at 2 ingredients and grow to 5.
   - New dishes can be added later without changing how the game works.
   - It has no sound yet.
+- **Paw Trace** — a tracing game for small fingers. A wide, soft path shows what to trace, and a friendly frog waits at the start of the next line. Your child drags a finger along the path and it fills with colour. Colour only appears where the finger is on the path, so nothing is ever wrong: off the path, nothing happens, and lifting and starting again anywhere on the path just carries on. When a line is nearly covered it finishes itself with a sparkle, and when the whole shape is done there is a little celebration and one big button to play on.
+  - It starts with lines and curves, then simple shapes, then the numbers 1 to 9 and 0, then the capital letters. Every third one is an easier one from before. Nobody picks a level; it just goes.
+  - Letters with several lines, like E, 4 or A, can be traced in any order and either direction.
+  - After all 46 it keeps going with a random mix.
+  - It has no sound yet.
 
-All three games start over from the beginning when you leave to the home screen. Nothing is saved.
+All four games start over from the beginning when you leave to the home screen. Nothing is saved.
 
-More games are planned. See `docs/PRD.md`. Paw Trace and Paw Blocks are in progress and not part of the app yet.
+More games are planned. See `docs/PRD.md`. Paw Blocks is in progress and not part of the app yet. Paw Trace is built and waiting for review.
 
 ## Build it on your computer
 
