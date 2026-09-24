@@ -75,7 +75,7 @@ Rationale: round 1 has three spare tubes so a 2-year-old can succeed almost by a
 
 Vocabulary: an **order** is a dish plus the set of ingredients in its bubble; the **dish** is what the child is building on the counter; the **tray** is the row/grid of ingredients to tap.
 
-**Menu (three dishes, each with a 6-ingredient shelf; the base is always in the order).** Burger: bun, patty, cheese, tomato, lettuce, pickle. Pizza: dough, sauce, cheese, mushroom, olive, pepperoni. Ice cream: cone, strawberry scoop, chocolate scoop, cherry, sprinkles, wafer. An ingredient appears at most once per order; there are no quantities to count.
+**Menu (three dishes, each with a 6-ingredient shelf; the base is always in the order).** Burger: bun, patty, cheese, tomato, lettuce, pickle. Pizza: dough, sauce, cheese, mushroom, olive, pepperoni. Ice cream: cone, strawberry scoop, chocolate scoop, cherry, sprinkles, wafer. An ingredient appears at most once per order; there are no quantities to count. **The founder confirmed this starting menu (2026-09-24) and asked that more dishes can be added later:** a dish is defined as content (a base, a shelf of up to 6 ingredients, and their pictures), so adding pancakes, sandwiches, soup or cupcakes later needs no change to how orders, the tray, serving or the ramp work, and never touches the other games.
 
 | # | Story | Acceptance criteria | Status |
 |---|---|---|---|
@@ -122,4 +122,3 @@ Rationale: starts at two picture-matches, adds one thing every two customers, an
 ## Open questions
 - None blocking Milestone 1. App name defaulted to **Paw Play** (the hub) with **Paw Match** as the first game inside it — founder can redirect either name at any time; it's a content change, not an architecture one.
 - Card theme for Paw Match itself defaulted to friendly animals — same, a pure content swap.
-- **Milestone 3, needs founder's answer before build:** (a) Are burger, pizza and ice cream the right menu for your son, or does he have favourites (pancakes, sandwich, soup, cupcakes)? Default: burger, pizza, ice cream; swapping dishes is a content-only change. (b) Serve only when the dish is *exactly* the order (story 24), or should a burger with a bonus tomato also be servable, since he may like to invent his own? Default: exactly the order, because it keeps "did I do it right?" clear for a 2-year-old.
