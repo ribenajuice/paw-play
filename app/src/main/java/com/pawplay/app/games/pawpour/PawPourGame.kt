@@ -5,6 +5,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -49,7 +52,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// Timings: soft and unhurried. No sound anywhere in Paw Pour, matching Paw Match (docs/DECISIONS.md).
+// Timings: soft and unhurried. Paw Pour ships silent for now, matching Paw Match (docs/DECISIONS.md, 2026-09-25).
 private const val POUR_MS = 520
 private const val UNPOUR_MS = 700
 private const val UNPOUR_GAP_MS = 200L
@@ -108,20 +111,29 @@ private data class PourAnimation(val from: Int, val to: Int, val count: Int, val
 
 /**
  * Every round is fresh in-memory state — entering from the home screen always starts at round 1;
- * nothing is saved (docs/PRD.md story 16). Taps are ignored while anything is animating or being
- * checked, so mashing the screen or multi-touch can't break the round (story 18).
+ * nothing is saved (docs/PRD.md story 16). Taps are ignored while anything is animating, being
+ * checked, or a board is being dealt, so mashing the screen or multi-touch can't break the round
+ * (story 18). Dealing happens off the main thread: the very first board appears a moment after
+ * the screen opens (just the home button until then, no text), and "play again" keeps the win
+ * overlay up until the next board is ready, so nothing flickers.
  */
 @Composable
 private fun PawPourScreen(onExit: () -> Unit) {
-    var round by remember { mutableStateOf(newRoundState(round = 1)) }
+    var round by remember { mutableStateOf<RoundState?>(null) }
     var selected by remember { mutableStateOf<Int?>(null) }
-    var busy by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(true) } // true until the first board is dealt
     var showWin by remember { mutableStateOf(false) }
     var animation by remember { mutableStateOf<PourAnimation?>(null) }
-    var wobbleTube by remember { mutableIntStateOf(-1) }
-    var wobbleNonce by remember { mutableIntStateOf(0) }
+    // Each tube counts its own wrong taps, so a wobble on one tube never restarts another's.
+    val wobbles = remember { mutableStateMapOf<Int, Int>() }
+    var playAgainPending by remember { mutableStateOf(false) }
     val progress = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        round = withContext(Dispatchers.Default) { newRoundState(round = 1) }
+        busy = false
+    }
 
     suspend fun runAnimation(move: PourAnimation, durationMs: Int) {
         progress.snapTo(0f)
@@ -129,10 +141,10 @@ private fun PawPourScreen(onExit: () -> Unit) {
         progress.animateTo(1f, tween(durationMs, easing = FastOutSlowInEasing))
     }
 
-    suspend fun playPour(from: Int, to: Int, count: Int) {
+    suspend fun playPour(start: RoundState, from: Int, to: Int, count: Int) {
         busy = true
-        runAnimation(PourAnimation(from, to, count, round.board.tubes[from].last()), POUR_MS)
-        val poured = round.poured(from, to)
+        runAnimation(PourAnimation(from, to, count, start.board.tubes[from].last()), POUR_MS)
+        val poured = start.poured(from, to)
         round = poured
         animation = null
         selected = null
@@ -145,13 +157,15 @@ private fun PawPourScreen(onExit: () -> Unit) {
         // Is the round still finishable? If not, wait a beat so the child sees what they did,
         // then gently un-pour back to the latest position that can still be finished.
         val checked = withContext(Dispatchers.Default) { poured.checkedFinishable() }
-        round = checked
-        if (checked.needsRewind) {
+        var current = checked
+        round = current
+        if (current.needsRewind) {
             delay(REWIND_PAUSE_MS)
-            for (step in checked.rewindSteps()) {
-                val back = PourAnimation(step.move.to, step.move.from, step.move.count, round.board.tubes[step.move.to].last())
+            for (step in current.rewindSteps()) {
+                val back = PourAnimation(step.move.to, step.move.from, step.move.count, current.board.tubes[step.move.to].last())
                 runAnimation(back, UNPOUR_MS)
-                round = round.undoLast()
+                current = current.undoLast()
+                round = current
                 animation = null
                 delay(UNPOUR_GAP_MS)
             }
@@ -160,52 +174,60 @@ private fun PawPourScreen(onExit: () -> Unit) {
     }
 
     fun onTubeTap(index: Int) {
+        val current = round ?: return
         if (busy || showWin) return
-        when (val outcome = round.board.tap(selected, index)) {
+        when (val outcome = current.board.tap(selected, index)) {
             TapOutcome.Ignore -> Unit
             is TapOutcome.Select -> selected = outcome.tube
             TapOutcome.Deselect -> selected = null
             is TapOutcome.Reject -> {
-                wobbleTube = outcome.tube
-                wobbleNonce++
+                wobbles[outcome.tube] = (wobbles[outcome.tube] ?: 0) + 1
                 selected = null
             }
             is TapOutcome.Pour -> {
                 busy = true // set now, so a second tap in the same frame is already ignored
-                scope.launch { playPour(outcome.from, outcome.to, outcome.count) }
+                scope.launch { playPour(current, outcome.from, outcome.to, outcome.count) }
             }
+        }
+    }
+
+    fun onPlayAgain() {
+        val finished = round ?: return
+        if (playAgainPending) return
+        playAgainPending = true
+        scope.launch {
+            val next = withContext(Dispatchers.Default) { finished.nextRound() }
+            round = next
+            selected = null
+            animation = null
+            busy = false
+            showWin = false
+            playAgainPending = false
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             ExitButton(onClick = onExit, modifier = Modifier.padding(20.dp))
-            PourBoard(
-                board = round.board,
-                selected = selected,
-                animation = animation,
-                progress = progress.value,
-                wobbleTube = wobbleTube,
-                wobbleNonce = wobbleNonce,
-                onTubeTap = ::onTubeTap,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-            )
+            val current = round
+            if (current != null) {
+                PourBoard(
+                    board = current.board,
+                    selected = selected,
+                    animation = animation,
+                    progress = progress.value,
+                    wobbles = wobbles,
+                    onTubeTap = ::onTubeTap,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
         }
 
         if (showWin) {
-            WinOverlay(
-                onPlayAgain = {
-                    round = round.nextRound()
-                    selected = null
-                    animation = null
-                    busy = false
-                    showWin = false
-                },
-                onHome = onExit,
-            )
+            WinOverlay(onPlayAgain = ::onPlayAgain, onHome = onExit)
         }
     }
 }
@@ -216,8 +238,7 @@ private fun PourBoard(
     selected: Int?,
     animation: PourAnimation?,
     progress: Float,
-    wobbleTube: Int,
-    wobbleNonce: Int,
+    wobbles: Map<Int, Int>,
     onTubeTap: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -256,7 +277,7 @@ private fun PourBoard(
                     partialCount = partialCount,
                     partialFraction = partialFraction,
                     tiltDegrees = tilt,
-                    wobbleNonce = if (index == wobbleTube) wobbleNonce else 0,
+                    wobbleNonce = wobbles[index] ?: 0,
                     onClick = { onTubeTap(index) },
                     // The tube that is pouring floats above its neighbours while it tips.
                     modifier = Modifier
@@ -320,7 +341,9 @@ private fun WinOverlay(onPlayAgain: () -> Unit, onHome: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.96f)),
+            .background(MaterialTheme.colorScheme.background.copy(alpha = 0.96f))
+            // Swallow every tap that isn't on a button, so the exit button underneath can't be hit through it.
+            .pointerInput(Unit) { detectTapGestures { } },
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(28.dp)) {

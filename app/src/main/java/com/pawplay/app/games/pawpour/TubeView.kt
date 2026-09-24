@@ -39,6 +39,8 @@ import com.pawplay.app.ui.theme.PawCardWhite
 import com.pawplay.app.ui.theme.PawLeaf
 import com.pawplay.app.ui.theme.PawSky
 import com.pawplay.app.ui.theme.PawSunshine
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.min
@@ -187,11 +189,18 @@ internal fun PourTube(
     modifier: Modifier = Modifier,
 ) {
     val lift by animateDpAsState(if (raised) SELECT_LIFT else 0.dp, tween(LIFT_MS), label = "tube-lift")
+    // Wobble counts up per tube; a tube that appears with a non-zero count (a new round) stays still.
+    val firstNonce = remember { wobbleNonce }
     val wobble = remember { Animatable(1f) }
     LaunchedEffect(wobbleNonce) {
-        if (wobbleNonce > 0) {
-            wobble.snapTo(0f)
-            wobble.animateTo(1f, tween(WOBBLE_MS, easing = LinearEasing))
+        if (wobbleNonce > firstNonce) {
+            try {
+                wobble.snapTo(0f)
+                wobble.animateTo(1f, tween(WOBBLE_MS, easing = LinearEasing))
+            } finally {
+                // However this ends (finished, or cut short by another wrong tap), rest at exactly zero offset.
+                withContext(NonCancellable) { wobble.snapTo(1f) }
+            }
         }
     }
     val sparkle = remember { Animatable(if (finished) 1f else 0f) }
