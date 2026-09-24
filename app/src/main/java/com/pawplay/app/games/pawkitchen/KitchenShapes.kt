@@ -4,6 +4,7 @@ import androidx.compose.ui.geometry.Offset
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.hypot
 import kotlin.math.sin
 
 /**
@@ -18,10 +19,14 @@ import kotlin.math.sin
  */
 sealed interface Part {
     fun contains(x: Float, y: Float): Boolean
+
+    /** How far (grid units) the point is from this shape; 0 when it is inside. Used to forgive near-miss taps. */
+    fun distance(x: Float, y: Float): Float
 }
 
 class Circle(val cx: Float, val cy: Float, val r: Float) : Part {
     override fun contains(x: Float, y: Float) = (x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r
+    override fun distance(x: Float, y: Float) = (hypot(x - cx, y - cy) - r).coerceAtLeast(0f)
 }
 
 /** An ellipse; [rotation] (degrees) turns it about its own centre. */
@@ -31,6 +36,12 @@ class Oval(val cx: Float, val cy: Float, val rx: Float, val ry: Float, val rotat
         val dx = (lx - cx) / rx
         val dy = (ly - cy) / ry
         return dx * dx + dy * dy <= 1f
+    }
+
+    override fun distance(x: Float, y: Float): Float {
+        val (lx, ly) = rotateAround(x, y, cx, cy, -rotation)
+        val d = hypot((lx - cx) / rx, (ly - cy) / ry)
+        return if (d <= 1f) 0f else (d - 1f) * minOf(rx, ry) // close enough for a tap slop
     }
 }
 
@@ -45,6 +56,14 @@ class Box(
         val cx = lx.coerceIn(this.x + r, this.x + w - r)
         val cy = ly.coerceIn(this.y + r, this.y + h - r)
         return (lx - cx) * (lx - cx) + (ly - cy) * (ly - cy) <= r * r
+    }
+
+    override fun distance(x: Float, y: Float): Float {
+        val (lx, ly) = rotateAround(x, y, this.x + w / 2, this.y + h / 2, -rotation)
+        val r = radius.coerceAtMost(minOf(w, h) / 2)
+        val cx = lx.coerceIn(this.x + r, this.x + w - r)
+        val cy = ly.coerceIn(this.y + r, this.y + h - r)
+        return (hypot(lx - cx, ly - cy) - r).coerceAtLeast(0f)
     }
 }
 
@@ -61,6 +80,27 @@ class Poly(val points: List<Offset>) : Part {
         }
         return inside
     }
+
+    override fun distance(x: Float, y: Float): Float {
+        if (contains(x, y)) return 0f
+        var best = Float.MAX_VALUE
+        var j = points.size - 1
+        for (i in points.indices) {
+            best = minOf(best, distanceToSegment(x, y, points[j], points[i]))
+            j = i
+        }
+        return best
+    }
+}
+
+/**
+ * [inner] (drawn on the 100 x 100 icon grid) placed into the box at [x], [y] sized [w] by [h], the way a
+ * picture is placed onto a dish. Lets a dish piece reuse the exact outline of its icon.
+ */
+class Placed(val inner: Silhouette, val x: Float, val y: Float, val w: Float, val h: Float = w) : Part {
+    override fun contains(x: Float, y: Float) = inner.contains((x - this.x) / w * 100f, (y - this.y) / h * 100f)
+    override fun distance(x: Float, y: Float) =
+        inner.distance((x - this.x) / w * 100f, (y - this.y) / h * 100f) * (w + h) / 200f
 }
 
 /** The union of [parts], the whole thing optionally turned by [rotation] degrees about the picture's centre (50, 50). */
@@ -70,6 +110,11 @@ class Silhouette(val parts: List<Part>, val rotation: Float = 0f) {
     fun contains(x: Float, y: Float): Boolean {
         val (lx, ly) = rotateAround(x, y, 50f, 50f, -rotation)
         return parts.any { it.contains(lx, ly) }
+    }
+
+    fun distance(x: Float, y: Float): Float {
+        val (lx, ly) = rotateAround(x, y, 50f, 50f, -rotation)
+        return parts.minOf { it.distance(lx, ly) }
     }
 }
 
@@ -93,6 +138,14 @@ fun silhouetteOverlap(a: Silhouette, b: Silhouette, step: Float = 0.5f): Float {
         y += step
     }
     return if (either == 0) 0f else both.toFloat() / either
+}
+
+private fun distanceToSegment(x: Float, y: Float, a: Offset, b: Offset): Float {
+    val dx = b.x - a.x
+    val dy = b.y - a.y
+    val lengthSquared = dx * dx + dy * dy
+    val t = if (lengthSquared == 0f) 0f else (((x - a.x) * dx + (y - a.y) * dy) / lengthSquared).coerceIn(0f, 1f)
+    return hypot(x - (a.x + t * dx), y - (a.y + t * dy))
 }
 
 private fun rotateAround(x: Float, y: Float, cx: Float, cy: Float, degrees: Float): Pair<Float, Float> {

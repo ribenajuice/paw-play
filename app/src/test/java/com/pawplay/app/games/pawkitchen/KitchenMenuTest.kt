@@ -150,4 +150,123 @@ class KitchenMenuTest {
         assertTrue(overlap("sauce", "pepperoni") < 0.75f)
         assertTrue(overlap("sauce", "olive") < 0.65f)
     }
+
+    // --- tapping a piece on the dish takes off the piece the child can SEE there ------------------
+
+    private fun spec(id: String) = KitchenMenu.specs.first { it.dish.id == id }
+
+    /** What a finger hits walking down the dish canvas at [x], top to bottom, runs collapsed, misses dropped. */
+    private fun column(dish: String, on: Set<String>, x: Float): List<String> {
+        val pieces = spec(dish).view.pieces(on)
+        val hits = ArrayList<String>()
+        var y = 0f
+        while (y <= DISH_HEIGHT) {
+            val hit = hitTestDish(pieces, Offset(x, y))
+            if (hit != null && hits.lastOrNull() != hit) hits += hit
+            y += 0.25f
+        }
+        return hits
+    }
+
+    @Test
+    fun `on a full burger the bun is only hit at the very top and bottom and every other slab is reachable in order`() {
+        val full = spec("burger").dish.shelf.toSet()
+        for (x in listOf(70f, 100f, 130f)) {
+            val hits = column("burger", full, x)
+            assertEquals("crown first at x=$x: $hits", "bun", hits.first())
+            assertEquals("heel last at x=$x: $hits", "bun", hits.last())
+            val middle = hits.subList(1, hits.size - 1)
+            assertTrue("no bun between crown and heel at x=$x: $hits", "bun" !in middle)
+            // topmost-first order of the last time each slab shows: pickle, lettuce, tomato, cheese, patty
+            val lastSeen = listOf("pickle", "lettuce", "tomato", "cheese", "patty").map { middle.lastIndexOf(it) }
+            assertTrue("every slab shows at x=$x: $hits", lastSeen.all { it >= 0 })
+            assertEquals("slabs stack in order at x=$x: $hits", lastSeen.sorted(), lastSeen)
+        }
+    }
+
+    @Test
+    fun `the bun crown does not steal taps from the slab under it or from the air beside its dome`() {
+        val burger = spec("burger")
+        // bun + patty + cheese: cheese is the top slab, only a few units of it show under the dome
+        val pieces = burger.view.pieces(setOf("bun", "patty", "cheese"))
+        val crown = pieces.last { it.ingredient == "bun" }
+        val cheese = pieces.first { it.ingredient == "cheese" }
+        val crownBottom = crown.bounds.bottom
+        // just under the dome's flat base: the visible cheese
+        assertEquals("cheese", hitTestDish(pieces, Offset(100f, crownBottom + 1f)))
+        assertEquals("cheese", hitTestDish(pieces, Offset(60f, crownBottom + 1f)))
+        // just inside the dome: the bun
+        assertEquals("bun", hitTestDish(pieces, Offset(100f, crownBottom - 2f)))
+        // the empty corners of the crown's bounding box are air, not bun
+        assertNull(hitTestDish(pieces, Offset(crown.bounds.left + 3f, crown.bounds.top + 3f)))
+        assertNull(hitTestDish(pieces, Offset(crown.bounds.right - 3f, crown.bounds.top + 3f)))
+        // the cheese's own drips (below its body) still count as cheese
+        assertEquals("cheese", hitTestDish(pieces, Offset(142f, cheese.bounds.bottom - 2f)))
+    }
+
+    @Test
+    fun `a near miss beside a thin slab takes that slab off, not nothing and not the bun`() {
+        val pieces = spec("burger").view.pieces(setOf("bun", "patty", "cheese"))
+        val cheese = pieces.first { it.ingredient == "cheese" }
+        // a few units past the cheese's left end, level with its body
+        assertEquals("cheese", hitTestDish(pieces, Offset(cheese.bounds.left - 4f, cheese.bounds.top + 3f)))
+        // far from everything: nothing
+        assertNull(hitTestDish(pieces, Offset(2f, cheese.bounds.top)))
+    }
+
+    @Test
+    fun `the top slab under the crown wins taps at its top edge and on its body, whichever slab it is`() {
+        val burger = spec("burger")
+        val order = listOf("bun", "patty", "cheese", "tomato", "lettuce", "pickle")
+        for (count in 2..order.size) {
+            val top = order[count - 1]
+            val pieces = burger.view.pieces(order.take(count).toSet())
+            val slab = pieces.first { it.ingredient == top }
+            val crown = pieces.last { it.ingredient == "bun" }
+            val points = when (top) {
+                // solid slabs: the strip just under the dome's flat base, at its very top edge and a little lower
+                "patty", "cheese", "tomato" -> listOf(
+                    Offset(100f, crown.bounds.bottom + 0.5f), Offset(100f, crown.bounds.bottom + 1.5f),
+                    Offset(70f, crown.bounds.bottom + 1.5f), Offset(130f, crown.bounds.bottom + 1.5f),
+                )
+                // open shapes (wavy leaf, three coins): their own solid parts
+                "lettuce" -> listOf(Offset(100f, slab.bounds.bottom - 2f), Offset(60f, slab.bounds.bottom - 2f))
+                else -> listOf(slab.bounds.center, Offset(62f, slab.bounds.center.y), Offset(138f, slab.bounds.center.y))
+            }
+            for (point in points) assertEquals("$top with $count on, tap at $point", top, hitTestDish(pieces, point))
+        }
+    }
+
+    @Test
+    fun `ice cream taps find the scoop, cherry, sprinkles and cone that are drawn there`() {
+        val full = spec("ice-cream").dish.shelf.toSet()
+        val hits = column("ice-cream", full, 90f) // the wafer leans out to the right, so it is not in this column
+        assertEquals(listOf("strawberry", "cone"), hits.takeLast(2))
+        assertEquals("cherry", hits.first())
+        assertTrue("sprinkles are reachable: $hits", "sprinkles" in hits)
+        assertTrue("chocolate is reachable: $hits", "chocolate" in hits)
+        assertTrue("no wafer in this column: $hits", "wafer" !in hits)
+        val pieces = spec("ice-cream").view.pieces(full)
+        val wafer = pieces.first { it.ingredient == "wafer" }
+        assertEquals("wafer", hitTestDish(pieces, wafer.bounds.center))
+        // taps at the centre of each piece's own bounds find that piece (the scoops sit on each other)
+        for (id in listOf("cone", "strawberry", "chocolate")) {
+            val piece = pieces.first { it.ingredient == id }
+            val visibleAt = generateSequence(piece.bounds.top) { it + 1f }.takeWhile { it < piece.bounds.bottom }
+                .firstOrNull { hitTestDish(pieces, Offset(100f, it)) == id }
+            assertTrue("$id has a visible part on the centre line", visibleAt != null)
+        }
+    }
+
+    @Test
+    fun `pizza layers are hit from the top layer down to the dough and not on the plate`() {
+        val pieces = spec("pizza").view.pieces(spec("pizza").dish.shelf.toSet())
+        assertEquals("cheese", hitTestDish(pieces, Offset(88f, 80f)))
+        assertEquals("sauce", hitTestDish(pieces, Offset(100f, 36f))) // between the cheese and the sauce edge, clear of toppings
+        assertEquals("dough", hitTestDish(pieces, Offset(155f, 80f)))
+        assertNull(hitTestDish(pieces, Offset(170f, 80f))) // the plate's rim
+        assertEquals("olive", hitTestDish(pieces, Offset(100f, 80f)))
+        assertEquals("pepperoni", hitTestDish(pieces, Offset(76f, 66f)))
+        assertEquals("mushroom", hitTestDish(pieces, Offset(100f, 52f)))
+    }
 }

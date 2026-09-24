@@ -101,6 +101,7 @@ internal fun DrawScope.paint(part: Part, fill: Color, rimWidth: Float = 3f, rim:
             rrect(part.x, part.y, part.w, part.h, part.radius, fill, rimWidth, rim = rim)
         }
         is Poly -> shape(pathOf(part.points), fill, rimWidth, rim)
+        is Placed -> Unit // only used to place an icon's outline on a dish for tap testing; icons draw themselves
     }
 }
 
