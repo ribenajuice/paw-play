@@ -90,4 +90,64 @@ class KitchenMenuTest {
         assertEquals(listOf(3, 2), trayRows(5))
         assertEquals(listOf(3, 3), trayRows(6))
     }
+
+    // --- story 23: ingredients differ by SHAPE, not only by colour ---------------------------------
+
+    /** Two outlines sharing more than this fraction of their combined area count as "the same silhouette". */
+    private val maxOutlineOverlap = 0.80f
+
+    /** Pairs allowed to look alike in outline because a visible mark tells them apart (design system: seed dots vs chips). */
+    private val differByMarkInstead = setOf(setOf("strawberry", "chocolate"))
+
+    @Test
+    fun `every ingredient has an outline and no outline is left over`() {
+        for (spec in KitchenMenu.specs) assertEquals(spec.dish.shelf.toSet(), spec.shapes.keys)
+    }
+
+    @Test
+    fun `no two ingredients in a dish share an outline`() {
+        val tooAlike = ArrayList<String>()
+        for (spec in KitchenMenu.specs) {
+            val ids = spec.dish.shelf
+            for (i in ids.indices) for (j in i + 1 until ids.size) {
+                if (setOf(ids[i], ids[j]) in differByMarkInstead) continue
+                val overlap = silhouetteOverlap(spec.shapes.getValue(ids[i]), spec.shapes.getValue(ids[j]))
+                if (overlap > maxOutlineOverlap) tooAlike += "${spec.dish.id}: ${ids[i]} vs ${ids[j]} = $overlap"
+            }
+        }
+        assertTrue("outlines too alike: $tooAlike", tooAlike.isEmpty())
+    }
+
+    @Test
+    fun `the overlap measure itself works`() {
+        val disc = Silhouette(Circle(50f, 50f, 30f))
+        assertEquals(1f, silhouetteOverlap(disc, disc), 0.001f)
+        assertEquals(0f, silhouetteOverlap(disc, Silhouette(Circle(90f, 90f, 5f))), 0.001f)
+        // a disc of half the radius covers a quarter of the area
+        assertEquals(0.25f, silhouetteOverlap(disc, Silhouette(Circle(50f, 50f, 15f))), 0.02f)
+        // turning a tall oval a quarter turn about the centre gives the wide oval
+        val tall = Silhouette(Oval(50f, 50f, 20f, 40f))
+        val wide = Silhouette(Oval(50f, 50f, 40f, 20f))
+        assertEquals(1f, silhouetteOverlap(Silhouette(listOf(Oval(50f, 50f, 20f, 40f)), rotation = 90f), wide), 0.01f)
+        assertTrue(silhouetteOverlap(tall, wide) < 0.5f)
+    }
+
+    @Test
+    fun `path data flattens to the right outline`() {
+        val square = polyFromPath("M10,10H90V90H10Z")
+        assertTrue(square.contains(50f, 50f))
+        assertTrue(!square.contains(95f, 50f))
+        val dome = polyFromPath("M10,54C10,24 28,10 50,10C72,10 90,24 90,54Z")
+        assertTrue(dome.contains(50f, 40f))
+        assertTrue(!dome.contains(50f, 5f))
+    }
+
+    @Test
+    fun `olive, pepperoni and sauce are clearly different outlines`() {
+        val pizza = KitchenMenu.specs.first { it.dish.id == "pizza" }.shapes
+        fun overlap(a: String, b: String) = silhouetteOverlap(pizza.getValue(a), pizza.getValue(b))
+        assertTrue(overlap("olive", "pepperoni") < 0.65f)
+        assertTrue(overlap("sauce", "pepperoni") < 0.75f)
+        assertTrue(overlap("sauce", "olive") < 0.65f)
+    }
 }

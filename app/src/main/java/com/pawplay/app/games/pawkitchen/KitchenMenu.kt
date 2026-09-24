@@ -25,6 +25,8 @@ class DishSpec(
     val dish: Dish,
     /** Tray icon = bubble picture, for every ingredient on the shelf. */
     val icons: Map<String, IngredientIcon>,
+    /** The outline of each icon, for every ingredient on the shelf; no two in a dish may look alike. */
+    val shapes: Map<String, Silhouette>,
     val view: DishView,
 )
 
@@ -116,6 +118,10 @@ private fun burger(): DishSpec {
         BURGER_BUN to BunIcon, BURGER_PATTY to PattyIcon, BURGER_CHEESE to BurgerCheeseIcon,
         BURGER_TOMATO to TomatoIcon, BURGER_LETTUCE to LettuceIcon, BURGER_PICKLE to PickleIcon,
     )
+    val shapes = mapOf(
+        BURGER_BUN to BunShape, BURGER_PATTY to PattyShape, BURGER_CHEESE to BurgerCheeseShape,
+        BURGER_TOMATO to TomatoShape, BURGER_LETTUCE to LettuceShape, BURGER_PICKLE to PickleShape,
+    )
     val view = DishView { on ->
         val out = ArrayList<DishPiece>()
         out += plate(cx = 100f, cy = 151f, rx = 88f, ry = 9f, wellRx = 62f, wellRy = 4.5f, wellDy = -1f)
@@ -187,7 +193,7 @@ private fun burger(): DishSpec {
         }
         out
     }
-    return DishSpec(dish, icons, view)
+    return DishSpec(dish, icons, shapes, view)
 }
 
 // --------------------------------------------------------------------- pizza (from above)
@@ -208,6 +214,10 @@ private fun pizza(): DishSpec {
     val icons = mapOf(
         PIZZA_DOUGH to DoughIcon, PIZZA_SAUCE to SauceIcon, PIZZA_CHEESE to PizzaCheeseIcon,
         PIZZA_MUSHROOM to MushroomIcon, PIZZA_OLIVE to OliveIcon, PIZZA_PEPPERONI to PepperoniIcon,
+    )
+    val shapes = mapOf(
+        PIZZA_DOUGH to DoughShape, PIZZA_SAUCE to SauceShape, PIZZA_CHEESE to PizzaCheeseShape,
+        PIZZA_MUSHROOM to MushroomShape, PIZZA_OLIVE to OliveShape, PIZZA_PEPPERONI to PepperoniShape,
     )
     // Toppings sit in fixed slots so a missing one never leaves a broken-looking gap.
     val slots = mapOf(
@@ -249,7 +259,7 @@ private fun pizza(): DishSpec {
         }
         out
     }
-    return DishSpec(dish, icons, view)
+    return DishSpec(dish, icons, shapes, view)
 }
 
 // --------------------------------------------------------------------- ice cream
@@ -270,6 +280,10 @@ private fun iceCream(): DishSpec {
     val icons = mapOf(
         ICE_CONE to ConeIcon, ICE_STRAWBERRY to StrawberryIcon, ICE_CHOCOLATE to ChocolateIcon,
         ICE_CHERRY to CherryIcon, ICE_SPRINKLES to SprinklesIcon, ICE_WAFER to WaferIcon,
+    )
+    val shapes = mapOf(
+        ICE_CONE to ConeShape, ICE_STRAWBERRY to StrawberryShape, ICE_CHOCOLATE to ChocolateShape,
+        ICE_CHERRY to CherryShape, ICE_SPRINKLES to SprinklesShape, ICE_WAFER to WaferShape,
     )
     val sprinkleSpots = listOf(
         Triple(-17f, 13f, -30f) to Color(0xFFFF6B4A), Triple(-4f, 6f, 20f) to Color(0xFF4FC1E9),
@@ -333,5 +347,5 @@ private fun iceCream(): DishSpec {
         }
         out
     }
-    return DishSpec(dish, icons, view)
+    return DishSpec(dish, icons, shapes, view)
 }

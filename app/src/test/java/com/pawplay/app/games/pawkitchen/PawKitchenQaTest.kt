@@ -301,7 +301,8 @@ class PawKitchenQaTest {
                 DishPiece(id, Rect(10f, 10f + i * 20f, 190f, 28f + i * 20f)) { }
             }
         }
-        return DishSpec(dish, icons, view)
+        val shapes = dish.shelf.associateWith { Silhouette(Circle(50f, 50f, 30f)) }
+        return DishSpec(dish, icons, shapes, view)
     }
 
     private fun assertSpecComplete(spec: DishSpec) {

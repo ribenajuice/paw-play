@@ -19,8 +19,6 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.vector.PathParser
 import com.pawplay.app.ui.theme.InkColor
 import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
  * An ingredient's picture, drawn on a 100 x 100 grid (docs/DESIGN-SYSTEM.md,
@@ -85,31 +83,26 @@ internal fun DrawScope.rrect(
 internal fun DrawScope.line(d: String, color: Color, width: Float, alpha: Float = 1f) =
     drawPath(svgPath(d), color, alpha = alpha, style = Stroke(width = width, cap = StrokeCap.Round, join = StrokeJoin.Round))
 
-private fun starPath(cx: Float, cy: Float, outer: Float, inner: Float, points: Int, startAngle: Float): Path =
-    Path().apply {
-        for (i in 0 until points * 2) {
-            val r = if (i % 2 == 1) inner else outer
-            val a = startAngle + i * PI.toFloat() / points
-            val x = cx + r * cos(a)
-            val y = cy + r * sin(a)
-            if (i == 0) moveTo(x, y) else lineTo(x, y)
-        }
-        close()
-    }
+internal fun pathOf(points: List<Offset>): Path = Path().apply {
+    points.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }
+    close()
+}
 
-/** A disc with wavy edges: r = radius + amplitude * sin(lobes * theta), the pizza sauce and cheese splats. */
+/** A disc with wavy edges as a Path (pizza sauce and cheese layers on the dish). */
 internal fun blobPath(cx: Float, cy: Float, radius: Float, amplitude: Float, lobes: Int): Path =
-    Path().apply {
-        val steps = lobes * 8
-        for (i in 0 until steps) {
-            val a = i.toFloat() / steps * 2f * PI.toFloat()
-            val rr = radius + amplitude * sin(a * lobes)
-            val x = cx + rr * cos(a)
-            val y = cy + rr * sin(a)
-            if (i == 0) moveTo(x, y) else lineTo(x, y)
+    pathOf(blobPoints(cx, cy, radius, amplitude, lobes))
+
+/** Paints one outline part in [fill] with the faint ink rim; the same geometry the overlap test measures. */
+internal fun DrawScope.paint(part: Part, fill: Color, rimWidth: Float = 3f, rim: Color = RimColor) {
+    when (part) {
+        is Circle -> circle(part.cx, part.cy, part.r, fill, rimWidth)
+        is Oval -> ellipse(part.cx, part.cy, part.rx, part.ry, part.rotation, fill, rimWidth, rim = rim)
+        is Box -> rotate(part.rotation, Offset(part.x + part.w / 2, part.y + part.h / 2)) {
+            rrect(part.x, part.y, part.w, part.h, part.radius, fill, rimWidth, rim = rim)
         }
-        close()
+        is Poly -> shape(pathOf(part.points), fill, rimWidth, rim)
     }
+}
 
 internal fun DrawScope.capsule(x: Float, y: Float, rotation: Float, color: Color, length: Float, width: Float) {
     withTransform({ translate(x, y); rotate(rotation, Offset.Zero) }) {
@@ -151,57 +144,76 @@ internal val StrawberryPink = Color(0xFFFF9EC4)
 internal val ChocolateBrown = Color(0xFF7A4B2B)
 internal val WaferTan = Color(0xFFF4D8A0)
 
-// ---------------------------------------------------------------- BURGER (side view)
-
-internal val BunIcon: IngredientIcon = {
-    shape("M10,54C10,24 28,10 50,10C72,10 90,24 90,54Z", BunTop)
-    rrect(12f, 60f, 76f, 24f, 11f, BunHeel, rimWidth = 3f)
-    sesame(BunSesameTray)
-}
-private val BunSesameTray = listOf(
-    Triple(34f, 32f, -25f), Triple(52f, 25f, 10f), Triple(68f, 34f, 30f),
-    Triple(44f, 45f, -10f), Triple(62f, 47f, 20f), Triple(27f, 47f, -30f),
-)
+// Each ingredient is an outline (a Silhouette, see KitchenShapes.kt) plus inner marks. The icon paints the
+// outline parts, so the shape a child sees is exactly the shape the overlap test measures.
 
 internal fun DrawScope.sesame(seeds: List<Triple<Float, Float, Float>>, dx: Float = 0f, dy: Float = 0f) {
     seeds.forEach { (x, y, r) -> ellipse(x + dx, y + dy, 5f, 2.8f, r, SesameSeed) }
 }
 
+// ---------------------------------------------------------------- BURGER (side view)
+
+private val BunDome = polyFromPath("M10,54C10,24 28,10 50,10C72,10 90,24 90,54Z")
+private val BunHeelPart = Box(12f, 60f, 76f, 24f, 11f)
+internal val BunShape = Silhouette(BunDome, BunHeelPart)
+private val BunSesameTray = listOf(
+    Triple(34f, 32f, -25f), Triple(52f, 25f, 10f), Triple(68f, 34f, 30f),
+    Triple(44f, 45f, -10f), Triple(62f, 47f, 20f), Triple(27f, 47f, -30f),
+)
+internal val BunIcon: IngredientIcon = {
+    paint(BunDome, BunTop)
+    paint(BunHeelPart, BunHeel)
+    sesame(BunSesameTray)
+}
+
+private val PattyBody = Box(8f, 26f, 84f, 48f, 24f)
+internal val PattyShape = Silhouette(PattyBody)
 internal val PattyIcon: IngredientIcon = {
-    rrect(8f, 26f, 84f, 48f, 24f, PattyBrown, rimWidth = 3f)
+    paint(PattyBody, PattyBrown)
     rrect(24f, 34f, 34f, 7f, 3.5f, PattyShine)
     line("M34,64L44,46M50,66L60,46M66,64L76,48", Color(0xFF4A2914), 5f)
 }
 
+private const val BURGER_CHEESE_TILT = -8f
+private val BurgerCheeseBody = polyFromPath("M10,20H90V56H76V76Q76,84 68,84Q60,84 60,76V56H10Z")
+internal val BurgerCheeseShape = Silhouette(BurgerCheeseBody, rotation = BURGER_CHEESE_TILT)
 internal val BurgerCheeseIcon: IngredientIcon = {
-    rotate(-8f, Offset(50f, 50f)) {
-        shape("M10,20H90V56H76V76Q76,84 68,84Q60,84 60,76V56H10Z", CheeseBurger)
+    rotate(BURGER_CHEESE_TILT, Offset(50f, 50f)) {
+        paint(BurgerCheeseBody, CheeseBurger)
         circle(26f, 36f, 5f, CheeseHole)
         circle(50f, 42f, 4f, CheeseHole)
         circle(72f, 32f, 4.5f, CheeseHole)
     }
 }
 
+private val TomatoBody = Circle(50f, 57f, 35f)
+private val TomatoCalyx = Poly(starPoints(50f, 25f, 15f, 5.5f, 5, (-PI / 2).toFloat()))
+internal val TomatoShape = Silhouette(TomatoBody, TomatoCalyx)
 internal val TomatoIcon: IngredientIcon = {
-    circle(50f, 57f, 35f, TomatoRed, rimWidth = 3f)
+    paint(TomatoBody, TomatoRed)
     ellipse(36f, 48f, 6f, 11f, 25f, Color.White, alpha = 0.45f)
-    val star = starPath(50f, 25f, 15f, 5.5f, 5, (-PI / 2).toFloat())
-    drawPath(star, Color(0xFF2E9E4E))
-    drawPath(star, RimColor, style = rimStroke(2f))
+    paint(TomatoCalyx, Color(0xFF2E9E4E), rimWidth = 2f)
 }
 
-internal val LettuceIcon: IngredientIcon = {
-    shape(
+// A tall ruffled leaf (stretched 15% taller than a first draft) so it is not mistaken for the pill-shaped patty.
+private val LettuceBody = Poly(
+    polyFromPath(
         "M8,50C6,26 28,16 40,24C46,14 60,14 66,24C80,16 94,30 92,50C94,62 88,72 78,72C72,82 60,78 54,74" +
             "C46,82 34,80 30,72C18,74 6,64 8,50Z",
-        LettuceGreen,
-    )
-    line("M50,26C48,44 50,58 50,70M50,46L34,38M50,46L66,38M50,58L36,54M50,58L64,54", Color(0xFF4FA83E), 4f)
+    ).points.map { Offset(it.x, 48f + (it.y - 48f) * 1.15f) },
+)
+internal val LettuceShape = Silhouette(LettuceBody)
+internal val LettuceIcon: IngredientIcon = {
+    paint(LettuceBody, LettuceGreen)
+    line("M50,22.7C48,43.4 50,59.5 50,73.3M50,45.7L34,36.5M50,45.7L66,36.5M50,59.5L36,54.9M50,59.5L64,54.9", Color(0xFF4FA83E), 4f)
 }
 
+private const val PICKLE_TILT = -38f
+private val PickleBody = Box(6f, 32f, 88f, 36f, 18f)
+internal val PickleShape = Silhouette(PickleBody, rotation = PICKLE_TILT)
 internal val PickleIcon: IngredientIcon = {
-    rotate(-38f, Offset(50f, 50f)) {
-        rrect(6f, 32f, 88f, 36f, 18f, PickleGreen, rimWidth = 3f)
+    rotate(PICKLE_TILT, Offset(50f, 50f)) {
+        paint(PickleBody, PickleGreen)
         rrect(18f, 37f, 40f, 5f, 2.5f, Color.White, alpha = 0.3f)
         listOf(26f to 52f, 40f to 60f, 54f to 45f, 68f to 59f, 80f to 48f, 33f to 46f)
             .forEach { (x, y) -> circle(x, y, 3.2f, Color(0xFFA6D986)) }
@@ -209,21 +221,32 @@ internal val PickleIcon: IngredientIcon = {
 }
 
 // ---------------------------------------------------------------- PIZZA (top view)
+// Outlines that must stay apart: the dough is a big round disc, the sauce a WIDE lobed splat, the olive a TALL
+// oval ring and the pepperoni a smaller plain round disc. (Olive and pepperoni used to share one circle.)
 
+private val DoughBody = Circle(50f, 50f, 43f)
+internal val DoughShape = Silhouette(DoughBody)
 internal val DoughIcon: IngredientIcon = {
-    circle(50f, 50f, 43f, DoughEdge, rimWidth = 3f)
+    paint(DoughBody, DoughEdge)
     circle(50f, 50f, 32f, DoughMiddle)
     listOf(Triple(40f, 42f, -20f), Triple(60f, 38f, 30f), Triple(62f, 60f, -10f), Triple(40f, 62f, 25f), Triple(50f, 50f, 0f))
         .forEach { (x, y, r) -> ellipse(x, y, 4.5f, 2.6f, r, Color(0xFFE7C287)) }
 }
 
+private val SauceBody = Poly(blobPoints(50f, 50f, radius = 47f, amplitude = 4f, lobes = 7, ratio = 27f / 47f))
+internal val SauceShape = Silhouette(SauceBody)
 internal val SauceIcon: IngredientIcon = {
-    shape(blobPath(50f, 50f, 36f, 4.5f, 7), SauceRed)
-    line("M32,56C30,38 60,32 64,50C66,64 46,70 40,60C36,52 48,46 54,52", Color(0xFFFF9078), 5f)
+    paint(SauceBody, SauceRed)
+    line(
+        "M27.5,55.1C25,39.8 62.5,34.7 67.5,50C70,61.9 45,67 37.5,58.5C32.5,51.7 47.5,46.6 55,51.7",
+        Color(0xFFFF9078), 5f,
+    )
 }
 
+private val PizzaCheeseBody = polyFromPath("M6,80L6,58L94,26L94,80Z")
+internal val PizzaCheeseShape = Silhouette(PizzaCheeseBody)
 internal val PizzaCheeseIcon: IngredientIcon = {
-    shape("M6,80L6,58L94,26L94,80Z", Color(0xFFFFD23F))
+    paint(PizzaCheeseBody, Color(0xFFFFD23F))
     drawPath(svgPath("M10,60L90,31L90,38L10,68Z"), Color(0xFFFFE98A))
     circle(26f, 70f, 6.5f, CheeseHole)
     circle(52f, 60f, 7f, CheeseHole)
@@ -231,30 +254,35 @@ internal val PizzaCheeseIcon: IngredientIcon = {
     circle(62f, 75f, 3.5f, CheeseHole)
 }
 
+private val MushroomBody = polyFromPath(
+    "M10,52C10,26 30,12 50,12C70,12 90,26 90,52C90,60 84,62 76,62L62,62L62,82Q62,90 54,90L46,90" +
+        "Q38,90 38,82L38,62L24,62C16,62 10,60 10,52Z",
+)
+internal val MushroomShape = Silhouette(MushroomBody)
 internal val MushroomIcon: IngredientIcon = {
-    shape(
-        "M10,52C10,26 30,12 50,12C70,12 90,26 90,52C90,60 84,62 76,62L62,62L62,82Q62,90 54,90L46,90" +
-            "Q38,90 38,82L38,62L24,62C16,62 10,60 10,52Z",
-        MushroomStem,
-    )
+    paint(MushroomBody, MushroomStem)
     drawPath(svgPath("M13,48C13,28 30,15 50,15C70,15 87,28 87,48C70,42 30,42 13,48Z"), Color(0xFFC9976A))
     circle(34f, 29f, 3.2f, MushroomStem)
     circle(52f, 24f, 3.2f, MushroomStem)
     circle(68f, 31f, 3.2f, MushroomStem)
 }
 
+private val OliveBody = Oval(50f, 50f, rx = 21f, ry = 41f)
+internal val OliveShape = Silhouette(OliveBody)
 internal val OliveIcon: IngredientIcon = {
-    circle(50f, 50f, 38f, OliveGreen, rimWidth = 3f)
-    drawCircle(Color.White, 14f, Offset(50f, 50f))
-    drawCircle(InkColor.copy(alpha = 0.25f), 14f, Offset(50f, 50f), style = rimStroke(2f))
-    line("M22,40A30,30 0 0 1 40,21", Color.White, 5f, alpha = 0.45f)
+    paint(OliveBody, OliveGreen)
+    ellipse(50f, 50f, 8f, 14f, 0f, Color.White)
+    ellipse(50f, 50f, 8f, 14f, 0f, Color.Transparent, rimWidth = 2f, rim = InkColor.copy(alpha = 0.25f))
+    line("M38,30Q35,50 38,68", Color.White, 5f, alpha = 0.45f)
 }
 
+private val PepperoniBody = Circle(50f, 50f, 34f)
+internal val PepperoniShape = Silhouette(PepperoniBody)
 internal val PepperoniIcon: IngredientIcon = {
-    circle(50f, 50f, 38f, PepperoniRed, rimWidth = 3f)
+    paint(PepperoniBody, PepperoniRed)
     listOf(
-        Triple(36f, 36f, -20f), Triple(60f, 32f, 30f), Triple(66f, 56f, 0f),
-        Triple(44f, 64f, 40f), Triple(50f, 48f, 0f), Triple(30f, 56f, -30f),
+        Triple(37f, 37f, -20f), Triple(60f, 34f, 30f), Triple(65f, 55f, 0f),
+        Triple(44f, 63f, 40f), Triple(50f, 48f, 0f), Triple(32f, 55f, -30f),
     ).forEach { (x, y, r) -> ellipse(x, y, 5.5f, 3.4f, r, Color(0xFFF4C3A0)) }
 }
 
@@ -263,30 +291,36 @@ internal val PepperoniIcon: IngredientIcon = {
 private const val CONE_PATH = "M20,22L80,22L55,90Q50,98 45,90Z"
 private const val SCOOP_TOP = "M10,54C10,26 28,10 50,10C72,10 90,26 90,54"
 
+private val ConeBodyPart = polyFromPath(CONE_PATH)
+private val ConeBand = Box(16f, 14f, 68f, 14f, 7f)
+internal val ConeShape = Silhouette(ConeBodyPart, ConeBand)
 internal val ConeIcon: IngredientIcon = {
-    drawPath(svgPath(CONE_PATH), ConeBody)
+    drawPath(pathOf(ConeBodyPart.points), ConeBody)
     clipPath(svgPath(CONE_PATH)) {
         listOf(-10f, 10f, 30f, 50f, 70f, 90f).forEach { x ->
             line("M$x,18L${x + 56},100M${x + 56},18L$x,100", ConeWaffle, 3f, alpha = 0.65f)
         }
     }
-    drawPath(svgPath(CONE_PATH), RimColor, style = rimStroke())
-    rrect(16f, 14f, 68f, 14f, 7f, ConeRim, rimWidth = 3f)
+    drawPath(pathOf(ConeBodyPart.points), RimColor, style = rimStroke())
+    paint(ConeBand, ConeRim)
 }
 
+private val StrawberryBody = polyFromPath(
+    SCOOP_TOP + "L90,60C90,72 80,76 72,68C68,80 56,82 50,74C44,82 32,80 28,68C20,76 10,72 10,60Z",
+)
+internal val StrawberryShape = Silhouette(StrawberryBody)
 internal val StrawberryIcon: IngredientIcon = {
-    shape(
-        SCOOP_TOP + "L90,60C90,72 80,76 72,68C68,80 56,82 50,74C44,82 32,80 28,68C20,76 10,72 10,60Z",
-        StrawberryPink,
-    )
+    paint(StrawberryBody, StrawberryPink)
     listOf(
         Triple(34f, 30f, -15f), Triple(54f, 24f, 20f), Triple(70f, 38f, -25f), Triple(44f, 44f, 10f),
         Triple(26f, 50f, 30f), Triple(60f, 56f, -10f), Triple(76f, 54f, 20f),
     ).forEach { (x, y, r) -> ellipse(x, y, 2.4f, 3.8f, r, Color(0xFFD63A78)) }
 }
 
+private val ChocolateBody = polyFromPath(SCOOP_TOP + "L90,62L80,74L70,62L60,76L50,62L40,76L30,62L20,74L10,62Z")
+internal val ChocolateShape = Silhouette(ChocolateBody)
 internal val ChocolateIcon: IngredientIcon = {
-    shape(SCOOP_TOP + "L90,62L80,74L70,62L60,76L50,62L40,76L30,62L20,74L10,62Z", ChocolateBrown)
+    paint(ChocolateBody, ChocolateBrown)
     val chip = Path().apply { moveTo(-5f, 4f); lineTo(5f, 4f); lineTo(0f, -5f); close() }
     listOf(
         Triple(34f, 30f, 15f), Triple(56f, 24f, -20f), Triple(70f, 38f, 35f),
@@ -296,11 +330,15 @@ internal val ChocolateIcon: IngredientIcon = {
     }
 }
 
+private val CherryLeft = Circle(28f, 70f, 20f)
+private val CherryRight = Circle(68f, 68f, 20f)
+private val CherryLeaf = Oval(64f, 14f, 13f, 5.5f, rotation = -20f)
+internal val CherryShape = Silhouette(CherryLeft, CherryRight, CherryLeaf)
 internal val CherryIcon: IngredientIcon = {
     line("M50,16Q40,32 28,56M50,16Q60,30 68,54", Color(0xFF4E7A2B), 4.5f)
-    ellipse(64f, 14f, 13f, 5.5f, -20f, Color(0xFF35A34A), rimWidth = 2f, rim = InkColor.copy(alpha = 0.25f))
-    circle(28f, 70f, 20f, Color(0xFFD62839), rimWidth = 3f)
-    circle(68f, 68f, 20f, Color(0xFFD62839), rimWidth = 3f)
+    paint(CherryLeaf, Color(0xFF35A34A), rimWidth = 2f, rim = InkColor.copy(alpha = 0.25f))
+    paint(CherryLeft, Color(0xFFD62839))
+    paint(CherryRight, Color(0xFFD62839))
     ellipse(21f, 62f, 3.4f, 6f, 25f, Color.White, alpha = 0.5f)
     ellipse(61f, 60f, 3.4f, 6f, 25f, Color.White, alpha = 0.5f)
 }
@@ -308,18 +346,22 @@ internal val CherryIcon: IngredientIcon = {
 private val SprinkleColors = listOf(
     Color(0xFFFF6B4A), Color(0xFF4FC1E9), Color(0xFFFFD23F), Color(0xFF35C46B), Color(0xFFFF9EC4),
 )
-
+private val SprinkleSpots = listOf(
+    listOf(28f, 26f, -30f, 0f), listOf(58f, 20f, 20f, 1f), listOf(78f, 38f, -60f, 2f), listOf(42f, 46f, 50f, 3f),
+    listOf(66f, 58f, 10f, 4f), listOf(22f, 64f, -10f, 1f), listOf(48f, 76f, -40f, 0f), listOf(76f, 80f, 35f, 2f),
+    listOf(30f, 86f, 60f, 3f), listOf(16f, 40f, 70f, 4f),
+)
+internal val SprinklesShape = Silhouette(SprinkleSpots.map { (x, y, r) -> Box(x - 9f, y - 3.5f, 18f, 7f, 3.5f, r) })
 internal val SprinklesIcon: IngredientIcon = {
-    listOf(
-        listOf(28f, 26f, -30f, 0f), listOf(58f, 20f, 20f, 1f), listOf(78f, 38f, -60f, 2f), listOf(42f, 46f, 50f, 3f),
-        listOf(66f, 58f, 10f, 4f), listOf(22f, 64f, -10f, 1f), listOf(48f, 76f, -40f, 0f), listOf(76f, 80f, 35f, 2f),
-        listOf(30f, 86f, 60f, 3f), listOf(16f, 40f, 70f, 4f),
-    ).forEach { (x, y, r, c) -> capsule(x, y, r, SprinkleColors[c.toInt()], 18f, 7f) }
+    SprinkleSpots.forEach { (x, y, r, c) -> capsule(x, y, r, SprinkleColors[c.toInt()], 18f, 7f) }
 }
 
+private const val WAFER_TILT = 28f
+private val WaferBody = Box(30f, 4f, 40f, 92f, 6f)
+internal val WaferShape = Silhouette(WaferBody, rotation = WAFER_TILT)
 internal val WaferIcon: IngredientIcon = {
-    rotate(28f, Offset(50f, 50f)) {
-        rrect(30f, 4f, 40f, 92f, 6f, WaferTan, rimWidth = 3f)
+    rotate(WAFER_TILT, Offset(50f, 50f)) {
+        paint(WaferBody, WaferTan)
         line("M43,8V92M57,8V92M32,26H68M32,44H68M32,62H68M32,80H68", Color(0xFFD9A85E), 2.5f)
     }
 }
