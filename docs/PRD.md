@@ -155,5 +155,3 @@ Rationale: starts at two picture-matches, adds one thing every two customers, an
 ## Open questions
 - None blocking Milestone 1. App name defaulted to **Paw Play** (the hub) with **Paw Match** as the first game inside it — founder can redirect either name at any time; it's a content change, not an architecture one.
 - Card theme for Paw Match itself defaulted to friendly animals — same, a pure content swap.
-- **Paw Trace, ramp pace:** because nothing is saved, he restarts at the first line each visit and reaches numbers after ~10 glyphs and letters after ~20. Is that pace right, or should later content arrive sooner (e.g. only the first 3 glyphs of lines and shapes before moving on)? Default: as written.
-- **Paw Trace, how he is taught to write:** we default to common US-style preschool print (e.g. 4 closed, 1 a single stroke, capitals only). If he is learning a different style at home or preschool, say which and we will match it.
