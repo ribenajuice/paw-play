@@ -89,14 +89,13 @@ private class Search(private val capacity: Int, private val budget: Int) {
         if (++nodes > budget) { gaveUp = true; return false }
 
         val candidates = ArrayList<Candidate>()
-        var emptySeen = false
         for (from in tubes.indices) {
             val source = tubes[from]
             if (source == 0) continue
             val run = runLength(source)
             val sourceSingleColour = run == length(source)
             val topColour = band(source, length(source) - 1)
-            emptySeen = false
+            var emptySeen = false
             for (to in tubes.indices) {
                 if (to == from) continue
                 val target = tubes[to]
