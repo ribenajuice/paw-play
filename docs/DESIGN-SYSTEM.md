@@ -47,6 +47,39 @@ Font: a single rounded, friendly, highly legible typeface. Numerals must be unam
 ## Voice & tone
 <!-- How the game talks: e.g. "Playful and encouraging. Short phrases, simple words. Never says 'wrong' — says 'try again!'" -->
 
+## Paw Pour: tubes, bands and marks
+
+Chrome (cream background, white surfaces, coral/sunshine/sky/leaf, ink, radii, 56dp exit button, 88dp win buttons, star badge) is unchanged and lives in `ui/theme/Color.kt`; Paw Pour reuses it as-is. Mockup: see the founder-approved Paw Pour artifact.
+
+**Band colours (content colours, not theme tokens).** Seven, each with its own mark, ordered brightest to darkest so they stay apart in greyscale:
+
+| # | Name | Hex | Mark | Mark colour |
+|---|---|---|---|---|
+| 1 | Sunshine | `#FFEB70` | star | ink `#2B2320` |
+| 2 | Bubblegum | `#FFA0CA` | heart | ink |
+| 3 | Sky | `#55BDEB` | ring | ink |
+| 4 | Coral | `#F25F3F` | triangle | white |
+| 5 | Leaf | `#1E9E4F` | diamond | white |
+| 6 | Grape | `#5B33A8` | plus | white |
+| 7 | Midnight | `#1F2F6B` | moon (crescent) | white |
+
+Rounds use the first N colours in this order (round 1 uses 3 fixed for maximum contrast: Sunshine, Sky, Coral; the code may pick any N as long as no two share a mark). Marks are solid shapes with softly rounded corners, drawn at 60% of the smaller band side, centred, one per band. Never letters or numbers.
+
+**Tube.** White glass body, open top with a slightly wider lip, bottom corners rounded to 40% of the body width, 3dp border, a faint white highlight down the left. Bands fill from the bottom with a 2dp light divider between bands. Border colour is the state: sunshine = resting, sky = selected, leaf = full and finished (same three states as Paw Match cards).
+- Selected: lifts 16dp and gets a sky glow. No other motion is required to read selection.
+- Finished tube: leaf border plus a small sunshine sparkle.
+- Wrong pour: tiny wobble only. No red, no sound.
+
+**Sizing.** The whole tube box (lip to base) is the tap area. Sides ≥16dp from the screen edge, gaps ≥12dp between tubes, 32dp between rows, 16dp headroom for the lift.
+| Mocked round | Layout | Tube w x h | Band h |
+|---|---|---|---|
+| 1 (6 tubes, capacity 3) | 3 columns x 2 rows | 88 x 212dp | 64dp |
+| 6+ cap (9 tubes, capacity 4) | rows of 5 and 4, centred | 56 x 204dp | 46dp |
+
+Sizes above are for a 360dp-wide phone. Rounds 2-5 are not mocked: the developer picks columns and the largest tube that fits the whole board with no scrolling, the same way `AdaptiveSquareGrid` does, never below 48dp wide, band height shrinking with tube size.
+
+**Home tile.** Paw Pour tile = three small tubes (middle one raised) with a sky badge holding a white paw, in the same bottom-end position as Paw Match's sunshine badge with a coral paw. Icon only.
+
 ## Hard rules
 - Every screen designed for a phone held one-handed by small hands, landscape or portrait per the game's needs.
 - Touch targets ≥48dp; generous spacing between anything tappable.

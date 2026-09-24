@@ -49,3 +49,9 @@ Format:
 - **Consequences**: the first game (or the home screen) that needs to remember a choice is the trigger to revisit this.
 
 <!-- Entries go below this line -->
+
+## 2026-09-24 — Second game is Paw Pour (liquid-sort puzzle), replacing the "shape/color sorting" sketch
+- **Context**: founder's son likes water-sort style pouring puzzles. Milestone 2 had only a sketch ("shape/color sorting, genre TBD").
+- **Decision**: Milestone 2 is **Paw Pour** (id `paw-pour`): tap a tube, tap a target to pour. Founder chose gentle auto-undo instead of a lose state, a session-only ramp starting at 6 tubes (see PRD for the round table, capped at 9 tubes / 7 colours), and delegated the name; the badge is sky blue. Approved 2026-09-24.
+- **Alternatives**: drag-to-pour — rejected as too fiddly for small fingers. A manual undo/restart button — cut to v2, since auto-undo covers it and a toddler could hit it by accident.
+- **Consequences**: renaming is content-only. Adding it must stay a pure addition (new package + one `GameCatalog` line). "Stuck" is read broadly: the game also rewinds when pours remain but the round can no longer be won.
