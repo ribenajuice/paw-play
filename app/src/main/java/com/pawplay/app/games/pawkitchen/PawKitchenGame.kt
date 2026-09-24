@@ -81,6 +81,7 @@ private const val SERVE_REACTION_MS = 2000L
 private const val DESIGN_W = 360f
 private const val DESIGN_H = 692f
 private const val MAX_SCALE = 1.5f
+private const val MIN_SCALE = 0.01f
 private const val TOUCH_FLOOR = 48f // dp, never go below for home / serve
 
 private const val EXIT_SIZE = 56f
@@ -149,7 +150,8 @@ internal fun KitchenScene(
     val serving = state.phase == Phase.SERVING
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-        val s = min(maxWidth.value / DESIGN_W, maxHeight.value / DESIGN_H).coerceAtMost(MAX_SCALE)
+        // Floor keeps a zero-sized window (or a transient layout pass) from producing a zero scale.
+        val s = min(maxWidth.value / DESIGN_W, maxHeight.value / DESIGN_H).coerceIn(MIN_SCALE, MAX_SCALE)
         val left = (maxWidth.value - DESIGN_W * s) / 2f // the 360-wide design box is centred on wide screens
         fun x(v: Float) = (left + v * s).dp
         fun y(v: Float) = (v * s).dp
@@ -246,8 +248,9 @@ internal fun KitchenScene(
         // Tray: 96dp tiles, all on screen, centred in the space under the counter.
         val rows = trayRows(state.tray.size)
         val blockH = rows.size * TILE + (rows.size - 1) * TILE_GAP
-        val trayTop = TRAY_TOP + ((DESIGN_H - TRAY_BOTTOM_MARGIN) - TRAY_TOP - blockH).coerceAtLeast(0f) / 2f +
-            (maxHeight.value / s - DESIGN_H).coerceAtLeast(0f) / 2f
+        // Centred in the space the design gives the tray. On a taller screen the spare height stays below
+        // the tray instead of opening a gap between the counter and the tray.
+        val trayTop = TRAY_TOP + ((DESIGN_H - TRAY_BOTTOM_MARGIN) - TRAY_TOP - blockH).coerceAtLeast(0f) / 2f
         var index = 0
         rows.forEachIndexed { rowIndex, count ->
             val rowW = count * TILE + (count - 1) * TILE_GAP
