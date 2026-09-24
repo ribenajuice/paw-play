@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -114,7 +115,8 @@ private fun PawTraceScreen(onExit: () -> Unit) {
 internal fun TraceScene(session: TraceSession, onExit: () -> Unit) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
         val layout = remember(maxWidth, maxHeight) { traceLayout(maxWidth.value, maxHeight.value) }
-        remember(layout.boxSize) { session.updateTuning(TraceTuning(layout.unitDp.toDouble())) }
+        // Plain assignment on the session, applied once composition succeeds (lint: no Unit-returning remember).
+        SideEffect { session.updateTuning(TraceTuning(layout.unitDp.toDouble())) }
 
         // The session is plain Kotlin, so these carry "something changed" to the drawing.
         val revision = remember { mutableIntStateOf(0) }
