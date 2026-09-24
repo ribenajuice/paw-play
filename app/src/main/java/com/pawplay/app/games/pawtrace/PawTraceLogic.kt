@@ -247,8 +247,12 @@ enum class TracePhase { TRACING, CELEBRATING }
  * One visit to Paw Trace: the ramp position, the glyph being painted, the phase, and which finger paints.
  * Session-only, nothing persisted; leaving the game drops it and re-entering starts again at the first glyph.
  */
-class TraceSession(private val random: kotlin.random.Random = kotlin.random.Random.Default, tuning: TraceTuning = TraceTuning.REFERENCE) {
-    var ramp: RampState = startRamp()
+class TraceSession(
+    private val random: kotlin.random.Random = kotlin.random.Random.Default,
+    tuning: TraceTuning = TraceTuning.REFERENCE,
+    start: RampState = startRamp(),
+) {
+    var ramp: RampState = start
         private set
     var paint: TracePaint = TracePaint(ramp.current, tuning)
         private set

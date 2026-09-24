@@ -266,4 +266,18 @@ class TraceSessionTest {
         assertTrue(s.paint.strokes[0].touched[8])
         assertEquals(32.0 / 2.88, s.tuning.paintRadius, 1e-9)
     }
+
+    @Test
+    fun `a missed lift cannot leave the game waiting for a finger that is gone`() {
+        val s = session()
+        val line = s.paint.strokes[0].stroke
+        s.pointerDown(1, line.xs[0], line.ys[0])
+        s.pointerMove(1, line.xs[5], line.ys[5])           // finger 1 is now "painting", and its lift never arrives
+        s.pointerDown(2, line.xs[30], line.ys[30])
+        assertFalse(s.paint.strokes[0].touched[30])        // ignored while finger 1 is thought to be down
+        s.releaseAll()                                     // the screen sees that no finger is down at all
+        assertEquals(0, s.fingersDown)
+        s.pointerDown(3, line.xs[30], line.ys[30])
+        assertTrue(s.paint.strokes[0].touched[30])
+    }
 }

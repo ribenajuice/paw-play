@@ -3,6 +3,7 @@ package com.pawplay.app.games
 import com.pawplay.app.games.pawkitchen.PawKitchenGame
 import com.pawplay.app.games.pawmatch.PawMatchGame
 import com.pawplay.app.games.pawpour.PawPourGame
+import com.pawplay.app.games.pawtrace.PawTraceGame
 
 /**
  * Every game on the Paw Play shelf, in the order tiles appear on the home
@@ -13,5 +14,6 @@ object GameCatalog {
         PawMatchGame,
         PawPourGame,
         PawKitchenGame,
+        PawTraceGame,
     )
 }
