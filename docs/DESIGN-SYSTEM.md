@@ -136,6 +136,71 @@ The six Paw Match critters (fox, bear, bunny, owl, cat, frog) built with the sam
 ### Decisions awaiting founder OK (mockup review)
 Coral badge; pizza drawn from above while burger and ice cream are side-view stacks; tapping the faint tray slot removes an ingredient (in addition to tapping it on the dish); 96dp tray tiles.
 
+## Paw Trace: guide, paint, markers and glyphs
+
+Chrome is unchanged (cream background, white surfaces, ink, 56dp home button, 88dp play-on button, 29dp tile corners). Mockup: https://claude.ai/artifact/EfRW97F8Y27HtWMzp33EPP (private; its raw HTML holds exact geometry). Every glyph is drawn from the data in `docs/glyphs/paw-trace-glyphs.md`. Working name and tile art are content: the game id stays `paw-trace`.
+
+### Home tile and badge
+- Fourth tile, icon only: a wavy line (path `M10,60 C16,28 30,28 37,60 C44,92 57,92 64,60 C71,28 84,28 90,60` on a 100-unit grid, drawn about 112dp wide inside the 146dp tile, nudged up 4dp). Guide band 14 units with a 2-unit edge, the first 54% of its length painted grape with the glow, and a **frog** (marker face, 22 units, white ring 12 units radius, sunshine halo 15 units at 28%) sitting at 68% of the length, just ahead of the paint. Two small sunshine sparkles beside the frog.
+- Badge: **grape `#8E59E6`** with a white paw, same bottom-end corner and 22.6dp size as the others. Match = sunshine, Pour = sky, Kitchen = coral, Trace = grape. Leaf is not used for a badge because leaf means "done" inside games. (This is a badge and content colour, not a theme token; it is brighter than Paw Pour's grape band `#5F36B0` and the two never appear together.) With four games the shelf reflows to 2 x 2; tiles stay 146dp.
+
+### Play screen layout (360 x 692dp play area, portrait)
+| Element | Size / position |
+|---|---|
+| Home button | 56dp, top-left, 20dp from edges, white circle, ink home glyph (same as every game). Always visible, on the celebration too |
+| Glyph box | **320 x 320dp** reference box, left 20dp, top 186dp (centre at 50% of the play area). One glyph unit = 3.2dp. Nothing but the glyph and the frog is drawn here |
+| Play-on button | 88dp leaf `#35C46B` circle with a white 46dp paw, horizontally centred, top 560dp (bottom 648dp). Exists only after a glyph completes |
+| Corridor of touch | the whole glyph box takes touches; only points within 32dp of a centreline paint |
+
+The glyph never sits under the home button (its top edge is 110dp below it) or the play-on button (54dp gap). On a phone whose play area is not 360 x 692dp: keep the glyph box centred at 50% of the play area, scale it uniformly to fit with 20dp side margins and at least 16dp clear of the home button and the play-on button, **never below 288dp**, and keep every dp measure below (band, corridor, finger, marker) fixed, because they are sized for a fingertip and not for the picture. If it cannot fit 288dp, tell the ui-designer.
+
+### Guide, paint and glow
+| Layer | Size | Colour |
+|---|---|---|
+| Guide edge | band + 3dp each side = 62dp, round caps and joins | `#A98BE6` |
+| Guide fill | **56dp** wide band (17.5 glyph units), round caps and joins | `#E6DBF9` |
+| Centre dots | 3dp dotted line down the middle of the band, dots about 10dp apart | `#B9A2EC` |
+| Glow (3 rings under the paint) | 77dp, 69dp, 62dp wide | `#B18CFA` at 18%, 26%, 38% |
+| Paint core | 56dp wide, same shape as the band, round | grape `#8E59E6` |
+| Paint shine | 16dp wide line down the centre of painted runs | `#B995FA` at 55% |
+| Stroke-complete line | 5dp white line down the centre of a finished stroke | white at 50% |
+
+Contrast (WCAG luminance ratio, measured): paint vs guide fill 3.3, paint vs cream 4.1, guide edge vs cream 2.6 (the fill alone is 1.2 against cream, so the edge is what makes it readable in sun; do not drop it), white paw on grape 4.5. The glow is drawn as three widening, fading strokes, no blur (same approach as Paw Pour's selected glow), and reaches 10dp past the band each side, so progress shows beyond a 40dp fingertip.
+
+There is one paint colour for every glyph. Nothing ever paints outside the guide shape; the glow may spill a few dp onto the cream and that is intended.
+
+### Marker (the frog) and direction cue
+- **Marker:** Paw Match's frog face (`#7FBF6B` head, `#DFF2D6` muzzle, ink eyes, small smile; the `CritterFace` recipe, cropped tight so the head fills the box) at **48dp**, on a 58dp white ring, on two sunshine halos (74dp at 30%, 90dp at 14%). It bobs 5dp up and down over 1.3s. It is never hidden by the finger: its centre sits **48dp (15 glyph units) further along the path than the first unpainted point** of its stroke, so the ring's edge is clear of a 40dp fingertip.
+- **Which stroke it is on:** the stroke the child is currently painting, while it is unfinished; otherwise the first unfinished stroke in the glyph's list order. If a stroke's start is unpainted the marker sits exactly on the start point.
+- **Hop:** when a stroke completes the frog hops to its next stroke in about 0.4s (a 30dp arc up, sliding position). Reduced motion: it just moves.
+- **Direction cue:** three **paw prints** on the path ahead of the frog, 20dp each, centred 48, 83 and 118dp further along the stroke (not drawn past the stroke's end), rotated to the path direction (toes forward), colour `#A98BE6` at 95%, 65%, 40%. They show which way to go without any arrow. They are hidden while the frog walks the hint and once the glyph is done.
+- **Idle hint:** after about 5s with no touch, the frog slides along its stroke about 134dp ahead over 1.7s (ease in and out), then drifts back; repeats after each further pause. Any touch cancels it.
+- **Happy frog:** on completion the face swaps to Paw Kitchen's happy face (squeezed-shut arched eyes, open smile, pink cheeks).
+
+### Finger and paint rules (drawing behaviour)
+- Paint goes at the point of each stroke nearest the finger, only if the finger is within 32dp of that stroke's centreline, plus 3dp behind and ahead of that point. It fills the whole 56dp band across (not just the finger width). Where two strokes join, a finger near the join paints both.
+- Off the path: nothing at all (no colour, no fade, no shake, no sound, no count). Lift: paint stays, frog stays. Touch down anywhere on a path: painting resumes there.
+- Several fingers or a palm: each touch is independent; touches off the path do nothing.
+- **Stroke complete at 85%** of its length painted: the remaining gaps fill in over about 250ms, three sunshine four-point sparkles (about 14, 17 and 12dp radius, at 22%, 50% and 78% of the stroke, offset 15dp off the line, twinkling 1.3s) show for about 1.8s, the chime plays, the frog hops on. The finger never has to reach an exact end or corner.
+- **No failure state anywhere.** There is no score, star, timer, or "how well" readout. The first glyph is on screen the moment the game opens, with the frog already at its start (no loading state; first run and every run look the same).
+
+### Celebration (~2s, then wait for the button)
+Same style as Paw Match and the other games. The glyph is fully grape and stays put (it pops 1.6s loop between 100% and 103.5% scale); a white shimmer (12% of stroke length, 6-unit wide) runs along every stroke over 1.8s; sunshine sparkles and a few coral hearts float around the box; the frog, now happy, hops 22dp on the glyph's top (centred at glyph unit (50, -8)); the happy sound plays. **One** 88dp leaf play-on button (white paw, same as Match and Pour) appears at the bottom, hopping 7dp every 1.1s with a 6dp leaf halo at 22%. Tapping the corner home button still works. The play-on button does nothing until it exists, and after tapping it the next glyph appears with the frog at its start; the celebration never advances by itself.
+
+### Glyph data conventions (for the developer)
+The full data lives in `docs/glyphs/paw-trace-glyphs.md` (id, stage, strokes as SVG path strings). Rules:
+- **Box:** every glyph is in a 100 x 100 box, y down. Centrelines stay inside x 12..88, y 11..89, so the 56dp band (8.75 units each side at 3.2dp per unit) stays inside the box. One box unit = 3.2dp at the 320dp reference box.
+- **Strokes:** a glyph is an ordered list of strokes. Each stroke is a single SVG path string using only absolute `M`, `L` and `C` commands, one `M` per stroke, no `Z`, written with commas between coordinates and spaces between commands. A closed shape (circle, square, triangle, heart, 6, 8, 0, O) is one stroke that ends exactly on its own start point.
+- **Start and direction:** the first point of the path is the stroke's start (where the frog stands) and the path direction is the direction of the paw prints and the hint walk. The child may paint either way. Conventions: top to bottom, left to right; closed shapes start at the top (or top-left corner) and go counter-clockwise; letters are made of the fewest natural strokes (a stem, then its bowl or arms).
+- **Order of the list:** the order in which the frog visits unpainted strokes (stem before arms, left to right, top to bottom). It is **never enforced**; painting in any order and direction works, and completion is only "every stroke at least 85% covered".
+- **Joins:** strokes that meet share an endpoint or a point on each other, and their bands simply overlap there. Strokes that do not join keep centrelines at least 20 units (64dp) apart, so a band never touches an unrelated stroke. Q's tail starts inside the ring (about 21 units from it), which is the tightest case.
+- **Special glyphs:** digit 1 is one stroke (flag then stem, no base). Digit 4 is closed: stroke 1 is the diagonal plus crossbar, stroke 2 is the vertical, both starting at the top point. Digit 3 doubles back on itself at the middle (a deliberate cusp; treat a 180 degree turn as legal). Digit 8 is two touching loops in one stroke that passes the centre twice. Capital I has top and bottom bars so it never looks like the plain vertical line.
+- **Measuring coverage:** sample each stroke's path every 1.5 units (`PathMeasure`); a sample is covered once the finger's nearest point on that stroke lies within 3 units of it (see the paint rules). A stroke is done at 85% of samples covered. Because a closed shape's first and last sample are the same spot, this needs no special case.
+- **Adding a glyph later:** add an id, a stage and its strokes. Nothing in the layout, colours or markers changes.
+
+### Decisions awaiting founder OK (mockup review)
+Grape for the tile badge and every glyph's paint; a frog as the marker (alternative: plain glowing dot); paw prints as the direction cue instead of arrows; pale lavender guide with an outline and dotted centre; one big green paw button on the celebration with home staying in its corner; the letter, digit and shape drawings (capital I with bars, closed 4, flagged 1).
+
 ## Hard rules
 - Every screen designed for a phone held one-handed by small hands, landscape or portrait per the game's needs.
 - Touch targets ≥48dp; generous spacing between anything tappable.
