@@ -48,6 +48,10 @@ const val MAX_ORDER_SIZE = 5
 fun rampFor(customersServed: Int): RampStep =
     RampStep(orderSize = (2 + customersServed.coerceAtLeast(0) / 2).coerceAtMost(MAX_ORDER_SIZE))
 
+/** Tray tiles per row (docs/DESIGN-SYSTEM.md): 3 = one row of 3, 4 = 2 + 2, 5 = 3 + 2, 6 = 3 + 3. */
+fun trayRows(trayChoices: Int): List<Int> =
+    if (trayChoices <= 3) listOf(trayChoices) else listOf((trayChoices + 1) / 2, trayChoices / 2)
+
 enum class Phase {
     /** The child is building; taps on ingredients and serve are live. */
     BUILDING,
