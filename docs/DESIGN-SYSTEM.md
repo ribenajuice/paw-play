@@ -78,6 +78,8 @@ Rounds use the first N colours in this order (round 1 uses 3 fixed for maximum c
 
 Sizes above are for a 360dp-wide phone. Rounds 2-5 are not mocked: the developer picks columns and the largest tube that fits the whole board with no scrolling, the same way `AdaptiveSquareGrid` does, never below 48dp wide, band height shrinking with tube size.
 
+**Motion (added by the developer while building).** Soft and unhurried, nothing that reads as an alarm. Lift 16dp over 180ms. Wobble: side-to-side up to 6dp, dying away over 320ms. Pour: the source lifts, tips 16 degrees toward the target and a ribbon of the colour arcs into the target while its top bands drain and the target's fill, over 520ms. Auto-undo: about 900ms after the pour lands, each pour is reversed the same way over 700ms with 200ms between. Sparkle: three small sunshine four-point stars pop in when a tube becomes full and one colour. Selected glow: four widening, fading sky outlines, no blur. Tube bounds: at most 88dp wide, bands at most 64dp tall and at most 0.85 of the tube width; the layout picks the row count that gives the tallest bands. No sound in Paw Pour, same as Paw Match.
+
 **Home tile.** Paw Pour tile = three small tubes (middle one raised) with a sky badge holding a white paw, in the same bottom-end position as Paw Match's sunshine badge with a coral paw. Icon only.
 
 ## Hard rules

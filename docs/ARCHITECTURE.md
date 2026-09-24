@@ -31,21 +31,26 @@ flowchart TB
     P[Toddler] --> HOME[Home screen — tile grid]
     HOME -->|tap tile| CATALOG[GameCatalog]
     CATALOG --> G1[Paw Match]
-    CATALOG -.->|future| G2[Game 2]
+    CATALOG --> G2[Paw Pour]
     CATALOG -.->|future| G3[Game 3]
     G1 -->|onExit| HOME
+    G2 -->|onExit| HOME
 ```
 No server, no API, no database, no network calls. Fully offline. Dotted lines are games that don't exist yet — not stubs in the code, just future catalog entries.
+
+Paw Pour's package (`games/pawpour/`): `PawPourLogic.kt` (rules, ramp, generation, round state), `PawPourSolver.kt` (solvability search), `PawPourLayout.kt` (tube sizes/positions as plain numbers), and the Compose files `PawPourGame.kt`, `TubeView.kt`, `BandStyle.kt`. Like Paw Match, only the logic/solver/layout files are unit-tested; the Compose files just call into them.
 
 ## Data model
 - **MiniGame catalog entry**: id, icon composable, content composable (see contract above). Static list, no persistence.
 - **Paw Match round state** (in-memory only): list of Cards (id, matched pair id, icon reference, revealed, matched), count of matched pairs, derived "is round complete" flag.
+- **Paw Pour round state** (in-memory only): a `Board` (tubes as bottom-first lists of `BandColor`, plus capacity) wrapped in a `RoundState` (round number, the board, `history` of every pour as `Step(boardBefore, move)`, and `safeDepth` = how many pours lead to the latest position known to be finishable). The ramp (`specForRound`) is a pure function of the round number, capped at round 6 (9 tubes, 7 colours). Selection, the pour animation and wobble live in the composable, not in the round state.
 - (Future) **Preferences**: per-game settings worth remembering (e.g. a theme choice) — persisted via DataStore only once a specific game needs it; not a shared/global concept until two games actually want the same thing.
 
 ## Key flows
 - **App open → home**: app launches straight into the home screen tile grid. No splash screen with text.
 - **Tile tap → game**: tap a tile → that game's `content` composable takes over the full screen.
 - **Paw Match round**: shuffle N pairs of animal icons into a grid → all cards face-down → tap flow (flip, compare after a short delay, match-and-lock or mismatch-and-flip-back) → win screen (play again / home).
+- **Paw Pour round**: `generateBoard` deals a shuffled board and only keeps it if it is well mixed and the solver proves it winnable → tap a tube to lift it, tap another to pour (`Board.tap` decides: select / put down / pour / gentle wobble) → the pour animates, then `RoundState.poured` records it → `checkedFinishable()` runs the solver off the main thread → if the round can no longer be finished (no pour left, or pours that can't win), wait ~1s, then `undoLast()` step by step with a reverse animation back to `safeDepth`, and play continues → when every tube is empty or one colour, win overlay (play again = next round on the ramp / home). Input is ignored while anything animates or is being checked; there is no sound, timer, score or counter.
 - **Exit → home**: any game's exit icon calls `onExit`, returning to the tile grid. Round/game state resets; nothing carries over between plays.
 
 ## Third-party dependencies
