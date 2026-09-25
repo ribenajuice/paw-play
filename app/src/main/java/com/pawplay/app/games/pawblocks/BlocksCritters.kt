@@ -10,7 +10,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.vector.PathParser
 import com.pawplay.app.ui.theme.BearEar
 import com.pawplay.app.ui.theme.BearHead
 import com.pawplay.app.ui.theme.BearMuzzle
@@ -52,7 +51,16 @@ private val looks = listOf(
 private val Rim = InkColor.copy(alpha = 0.22f)
 private val RimStroke = Stroke(width = 1.6f, join = StrokeJoin.Round)
 
-private fun svg(d: String): Path = PathParser().parsePathString(d).toPath()
+// Parsed once, not on every frame while the animal is showing.
+private val EyesPath = svg("M27,44Q32,37 37,44M43,44Q48,37 53,44")
+private val MouthPath = svg("M32,56Q40,68 48,56Z")
+private val TonguePath = svg("M36,60Q40,64 44,60Q40,58 36,60Z")
+private val NosePath = Path().apply { moveTo(40f, 50f); lineTo(36f, 54f); lineTo(44f, 54f); close() }
+private val EarPaths = listOf(
+    Path().apply { moveTo(20f, 30f); lineTo(27f, 8f); lineTo(35f, 28f); close() },
+    Path().apply { moveTo(60f, 30f); lineTo(53f, 8f); lineTo(45f, 28f); close() },
+)
+private val EyeStroke = Stroke(3f, cap = StrokeCap.Round, join = StrokeJoin.Round)
 
 /** The colour of this animal's paws on the board's edge: its head colour. */
 internal fun critterPawColor(index: Int): Color = looks[index.mod(looks.size)].head
@@ -63,9 +71,7 @@ internal fun DrawScope.drawHappyCritter(index: Int, size: Float) {
     scale(scale = size / 80f, pivot = Offset.Zero) {
         when (look.ears) {
             Ears.POINTED -> {
-                val left = Path().apply { moveTo(20f, 30f); lineTo(27f, 8f); lineTo(35f, 28f); close() }
-                val right = Path().apply { moveTo(60f, 30f); lineTo(53f, 8f); lineTo(45f, 28f); close() }
-                for (p in listOf(left, right)) { drawPath(p, look.ear); drawPath(p, Rim, style = RimStroke) }
+                for (p in EarPaths) { drawPath(p, look.ear); drawPath(p, Rim, style = RimStroke) }
             }
             Ears.ROUND -> for (x in listOf(18f, 62f)) {
                 drawCircle(look.ear, 9f, Offset(x, 20f))
@@ -82,11 +88,10 @@ internal fun DrawScope.drawHappyCritter(index: Int, size: Float) {
         drawOval(look.muzzle, Offset(27f, 45f), Size(26f, 18f))
         drawCircle(BlocksBlush, 4.6f, Offset(24f, 52f), alpha = 0.7f)
         drawCircle(BlocksBlush, 4.6f, Offset(56f, 52f), alpha = 0.7f)
-        drawPath(svg("M27,44Q32,37 37,44M43,44Q48,37 53,44"), InkColor, style = Stroke(3f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        val mouth = svg("M32,56Q40,68 48,56Z")
-        drawPath(mouth, BlocksMouth)
-        drawPath(mouth, InkColor, style = RimStroke)
-        drawPath(svg("M36,60Q40,64 44,60Q40,58 36,60Z"), BlocksBlush)
-        drawPath(Path().apply { moveTo(40f, 50f); lineTo(36f, 54f); lineTo(44f, 54f); close() }, InkColor)
+        drawPath(EyesPath, InkColor, style = EyeStroke)
+        drawPath(MouthPath, BlocksMouth)
+        drawPath(MouthPath, InkColor, style = RimStroke)
+        drawPath(TonguePath, BlocksBlush)
+        drawPath(NosePath, InkColor)
     }
 }

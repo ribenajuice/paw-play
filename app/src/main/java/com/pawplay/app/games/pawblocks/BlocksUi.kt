@@ -115,7 +115,7 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
     /** A finger went down. True if it grabbed a tray block (only then does the game follow it). */
     fun onDown(id: Long, x: Float, y: Float): Boolean {
         val slot = layout.slotAt(x, y)
-        val hasBlock = slot >= 0 && session.tray[slot] != null
+        val hasBlock = slot >= 0 && session.slot(slot) != null
         if (!tracker.down(id, x, y, slot, hasBlock)) return false
         val now = nowMs()
         returns.removeAll { it.slot == slot } // grabbed again mid-glide: it is in the hand at once
@@ -133,6 +133,28 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
         return true
     }
 
+    /** What [onPointer] did with a pointer change. */
+    enum class Took { NOTHING, FOLLOWED, CHANGED }
+
+    /**
+     * One pointer change from the touch layer. [pressed] and [previousPressed] say whether it went down, moved or
+     * came up. A change that is already [consumed] when it arrives as an "up" is how Compose reports a cancel (a system
+     * gesture, a notification pull-down, an app switch): it is NOT a lift, so the block goes home instead of landing.
+     * [Took.CHANGED] means a drag started or ended (worth waking the frame loop); a plain move is only [Took.FOLLOWED].
+     */
+    fun onPointer(id: Long, x: Float, y: Float, pressed: Boolean, previousPressed: Boolean, consumed: Boolean): Took = when {
+        pressed && !previousPressed -> if (onDown(id, x, y)) Took.CHANGED else Took.NOTHING
+        pressed -> if (onMove(id, x, y)) Took.FOLLOWED else Took.NOTHING
+        previousPressed -> {
+            if (consumed) { if (cancelPointer(id)) Took.CHANGED else Took.NOTHING }
+            else if (onUp(id, x, y)) Took.CHANGED else Took.NOTHING
+        }
+        else -> Took.NOTHING
+    }
+
+    /** A cancel for pointer [id]: only the dragging finger's cancel matters. */
+    private fun cancelPointer(id: Long): Boolean = if (tracker.pointerId == id) cancelDrag() else false
+
     /** The drag is interrupted (cancelled touch, screen left, a lift went missing): the block goes home. */
     fun cancelDrag(): Boolean {
         val ended = tracker.cancel() ?: return false
@@ -142,7 +164,7 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
 
     private fun finish(ended: DragTracker.Ended, drop: Boolean) {
         val now = nowMs()
-        val shape = session.tray[ended.slot]
+        val shape = session.slot(ended.slot)
         session.setHolding(false, now)
         revision.intValue++
         if (shape == null) return
@@ -157,6 +179,9 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
         drops += DropFx(now, shape, placed.row, placed.col, pose.x, pose.y, pose.s)
         if (placed.cleared) lines += lineFx(now + BlocksTiming.DROP_MS, placed, session.board.size, cell)
     }
+
+    /** A fading cell of a cleared line or clear-out is drawn only while its place is still empty: a block dropped there since is not covered. */
+    fun fadingCellVisible(cell: FxCell): Boolean = session.board.isEmptyAt(cell.row, cell.col)
 
     class Pose(val x: Float, val y: Float, val s: Float)
 

@@ -62,8 +62,11 @@ class BlocksSession(
 
     private val trayMutable: Array<BlockShape?> = arrayOfNulls(BlocksRamp.TRAY_SIZE)
 
-    /** The three slots; null where the block has been placed. */
+    /** The three slots; null where the block has been placed. A copy, made on each call: use [slot] in per-frame code. */
     val tray: List<BlockShape?> get() = trayMutable.toList()
+
+    /** The block in slot [i] (0-2), or null if it has been placed. No allocation. */
+    fun slot(i: Int): BlockShape? = trayMutable.getOrNull(i)
 
     /** The stage the tray was dealt at: the tray's cell size follows it, so it does not jump mid-tray. */
     var trayStage: Int = stage
@@ -91,7 +94,16 @@ class BlocksSession(
     private fun remaining(): List<BlockShape> = trayMutable.filterNotNull()
 
     /** True while the tray holds blocks and none of them has a legal spot (a clear-out is on its way). */
-    val isStuck: Boolean get() = GentleClearOut.isStuck(board, remaining())
+    val isStuck: Boolean
+        get() {
+            var any = false
+            for (shape in trayMutable) {
+                if (shape == null) continue
+                any = true
+                if (board.hasSpot(shape)) return false
+            }
+            return any
+        }
 
     private val growthPending: Boolean get() = board.size < BlocksRamp.boardSizeFor(stage)
 

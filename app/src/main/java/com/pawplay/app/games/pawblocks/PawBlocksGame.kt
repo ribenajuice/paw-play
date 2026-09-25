@@ -91,22 +91,19 @@ internal fun BlocksScene(session: BlocksSession, onExit: () -> Unit) {
                         awaitPointerEventScope {
                             while (true) {
                                 val event = awaitPointerEvent()
-                                var touched = false
+                                var changed = false
                                 for (change in event.changes) {
-                                    val id = change.id.value
-                                    val x = change.position.x / density
-                                    val y = change.position.y / density
-                                    val took = when {
-                                        change.pressed && !change.previousPressed -> ui.onDown(id, x, y)
-                                        change.pressed -> ui.onMove(id, x, y)
-                                        change.previousPressed -> ui.onUp(id, x, y)
-                                        else -> false
-                                    }
-                                    if (took) { change.consume(); touched = true }
+                                    val took = ui.onPointer(
+                                        change.id.value, change.position.x / density, change.position.y / density,
+                                        change.pressed, change.previousPressed, change.isConsumed,
+                                    )
+                                    if (took != BlocksUi.Took.NOTHING) change.consume()
+                                    if (took == BlocksUi.Took.CHANGED) changed = true
                                 }
                                 // Nothing is down any more: a lift went missing, so the block goes home.
-                                if (event.changes.none { it.pressed } && ui.cancelDrag()) touched = true
-                                if (touched) wake.intValue++
+                                if (event.changes.none { it.pressed } && ui.cancelDrag()) changed = true
+                                // Only a drag starting or ending wakes the frame loop: it already runs on every frame while a finger drags.
+                                if (changed) wake.intValue++
                             }
                         }
                     } finally {

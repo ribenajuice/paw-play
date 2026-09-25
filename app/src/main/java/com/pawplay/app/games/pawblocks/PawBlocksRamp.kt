@@ -26,7 +26,16 @@ object BlocksRamp {
 
     fun boardSizeFor(stage: Int): Int = boardSizes[stage.coerceIn(1, MAX_STAGE) - 1]
 
-    fun shapesFor(stage: Int): List<BlockShape> = BlockShapes.forStage(stage.coerceIn(1, MAX_STAGE))
+    private val setsByStage: List<List<BlockShape>> = (1..MAX_STAGE).map { BlockShapes.forStage(it) }
+    private val widest: List<Int> = setsByStage.map { set -> set.maxOf { it.width } }
+    private val tallest: List<Int> = setsByStage.map { set -> set.maxOf { it.height } }
+
+    /** The blocks on offer at [stage]: built once, so per-frame code can ask freely. */
+    fun shapesFor(stage: Int): List<BlockShape> = setsByStage[stage.coerceIn(1, MAX_STAGE) - 1]
+
+    /** The widest and tallest block (in cells) that can be on offer at [stage]; the tray cell size follows them. */
+    fun widestFor(stage: Int): Int = widest[stage.coerceIn(1, MAX_STAGE) - 1]
+    fun tallestFor(stage: Int): Int = tallest[stage.coerceIn(1, MAX_STAGE) - 1]
 
     /** The gentle clear-out takes a third of the board's height, rounded up: 2 rows on 5x5 and 6x6, 3 on 7x7 to 9x9. */
     fun clearOutRowCount(boardSize: Int): Int = (boardSize + 2) / 3

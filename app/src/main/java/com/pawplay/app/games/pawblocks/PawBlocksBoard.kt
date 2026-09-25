@@ -26,6 +26,9 @@ class Board private constructor(val size: Int, private val cells: IntArray) {
 
     fun isEmpty(row: Int, col: Int): Boolean = cells[row * size + col] < 0
 
+    /** Like [isEmpty] but false, not an error, for a place that is not on the board (a board that has since changed size). */
+    fun isEmptyAt(row: Int, col: Int): Boolean = row in 0 until size && col in 0 until size && cells[row * size + col] < 0
+
     val filledCount: Int get() = cells.count { it >= 0 }
     val emptyCount: Int get() = size * size - filledCount
 

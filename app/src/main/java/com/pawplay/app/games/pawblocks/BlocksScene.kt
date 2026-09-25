@@ -76,13 +76,15 @@ internal fun DrawScope.drawScene(ui: BlocksUi, now: Long) {
             drawFilledCell(gx + c * cell, gy + r * cell, cell, family, scale = plop(r, c))
         }
         // Cells that are leaving: the line's, then the clear-out's.
+        // A place that has been filled again since (a block dropped into a line that is still fading) is not covered.
         for (fx in ui.lines) for (fc in fx.cells) {
-            if (hidden(fc.row, fc.col)) continue
+            if (!ui.fadingCellVisible(fc) || hidden(fc.row, fc.col)) continue
             val t = now - fx.start - fc.u * SWEEP_CELL_SPREAD_MS
             val (s, o, white) = lineCellLook(t) ?: continue
             drawFilledCell(gx + fc.col * cell, gy + fc.row * cell, cell, fc.family, scale = s, alpha = o, white = white)
         }
         for (fx in ui.outs) for (fc in fx.cells) {
+            if (!ui.fadingCellVisible(fc)) continue
             val (s, o, white) = outCellLook((now - fx.start).toFloat()) ?: continue
             drawFilledCell(gx + fc.col * cell, gy + fc.row * cell, cell, fc.family, scale = s, alpha = o, white = white)
         }
@@ -136,7 +138,7 @@ internal fun DrawScope.drawScene(ui: BlocksUi, now: Long) {
     }
     val trayCell = layout.trayCell(session.trayStage)
     for (rt in ui.returns) {
-        val shape = session.tray.getOrNull(rt.slot) ?: continue
+        val shape = session.slot(rt.slot) ?: continue
         val e = easeOut((now - rt.start).toFloat() / BlocksTiming.RETURN_MS)
         val s = rt.s0 + (trayCell - rt.s0) * e
         val restX = layout.slotLeftOf(rt.slot) + (layout.slotWidth - shape.width * trayCell) / 2f
@@ -147,7 +149,7 @@ internal fun DrawScope.drawScene(ui: BlocksUi, now: Long) {
     // The carried block: ghost where it would land, shadow, block.
     val tracker = ui.tracker
     if (tracker.active) {
-        val shape = session.tray.getOrNull(tracker.slot)
+        val shape = session.slot(tracker.slot)
         if (shape != null) {
             val spot = layout.dropSpot(board, shape, cell, tracker.x, tracker.y)
             if (spot != null) drawGhost(shape, gx + spot.col * cell, gy + spot.row * cell, cell, big = board.size >= BlocksRamp.NEAR_COMPLETE_MIN_BOARD)
@@ -166,7 +168,7 @@ private fun DrawScope.drawTray(ui: BlocksUi, now: Long) {
     val trayCell = layout.trayCell(session.trayStage)
     val slide = if (ui.trayInStart == Long.MIN_VALUE) 1f else easeOut((now - ui.trayInStart).toFloat() / BlocksTiming.REFILL_SLIDE_MS)
     for (i in 0 until BlocksRamp.TRAY_SIZE) {
-        val shape = session.tray[i]
+        val shape = session.slot(i)
         val lifted = shape != null && ((ui.tracker.active && ui.tracker.slot == i) || ui.returns.any { it.slot == i })
         val resting = shape != null && !lifted
         val left = layout.slotLeftOf(i)
@@ -226,6 +228,9 @@ private fun outCellLook(t: Float): CellLook? = when {
     else -> null
 }
 
+/** One path reused by every shimmer band in a frame (drawing is single-threaded), so a clear allocates no path per frame. */
+private val ShimmerPath = Path()
+
 private val ShimmerColors = listOf(Color.White.copy(alpha = 0f), Color.White.copy(alpha = 0.85f), Color.White.copy(alpha = 0f))
 
 /** The white band sweeping along a row: 1.6 cells wide, leaning 0.18 of a cell, clipped to the row. */
@@ -234,7 +239,8 @@ private fun DrawScope.shimmerRow(layout: BlocksLayout, cell: Float, row: Int, po
     val x = layout.gridLeft + pos * layout.gridSize
     val w = SWEEP_WIDTH * cell
     val lean = SWEEP_LEAN * cell
-    val path = Path().apply {
+    val path = ShimmerPath.apply {
+        rewind()
         moveTo(x - w / 2 + lean, y0); lineTo(x + w / 2 + lean, y0); lineTo(x + w / 2 - lean, y0 + cell); lineTo(x - w / 2 - lean, y0 + cell); close()
     }
     clipRect(layout.gridLeft, y0, layout.gridLeft + layout.gridSize, y0 + cell) {
@@ -247,7 +253,8 @@ private fun DrawScope.shimmerCol(layout: BlocksLayout, cell: Float, col: Int, po
     val y = layout.gridTop + pos * layout.gridSize
     val w = SWEEP_WIDTH * cell
     val lean = SWEEP_LEAN * cell
-    val path = Path().apply {
+    val path = ShimmerPath.apply {
+        rewind()
         moveTo(x0, y - w / 2 + lean); lineTo(x0 + cell, y - w / 2 - lean); lineTo(x0 + cell, y + w / 2 - lean); lineTo(x0, y + w / 2 + lean); close()
     }
     clipRect(x0, layout.gridTop, x0 + cell, layout.gridTop + layout.gridSize) {

@@ -10,19 +10,38 @@ object TrayDealer {
     /** How many random trios are looked at before settling for the best one seen. */
     const val ATTEMPTS = 48
 
-    /** Placements the "all three, one after another" search may try before it stops and says "probably". */
-    const val SEARCH_BUDGET = 20_000
+    /** Placements one "all three, one after another" search may try before it stops and says "probably". */
+    const val SEARCH_BUDGET = 5_000
+
+    /**
+     * Placements ALL searches of one deal may try between them. Each costs about a microsecond on a desktop
+     * JVM, so one deal, even on a 9x9 board, is bounded to a few tens of milliseconds on a phone.
+     */
+    const val TOTAL_BUDGET = 12_000
+
+    /** How much of a deal's search allowance is left; [used] says what a deal spent (tests read it). */
+    class Budget(var left: Int = TOTAL_BUDGET) {
+        var used: Int = 0
+            private set
+        fun spend(): Boolean {
+            if (left <= 0) return false
+            left--; used++
+            return true
+        }
+    }
 
     /**
      * Picks three blocks for [board] at [stage]. Always random within the stage's set.
      *
      * Guarantees, in this order of importance:
      *  1. **At least one of the three has a legal spot** (hard; whenever the board has any empty cell, the dot fits).
+     *     The first trio that has one is kept as the answer before any searching, so it holds however little is left to spend.
      *  2. The trio is not the same as [previous] (same blocks in any order), whenever another trio works.
      *  3. Best effort: all three can be placed one after another in some order, lines cleared on the way.
      *  4. Best effort, boards 7x7 and up only: if some block could finish a row or column, one is on offer.
+     * Rules 3 and 4 use what is left of [budget]; when it runs out the best trio seen so far is dealt.
      */
-    fun deal(board: Board, stage: Int, previous: List<String>?, random: Random): List<BlockShape> {
+    fun deal(board: Board, stage: Int, previous: List<String>?, random: Random, budget: Budget = Budget()): List<BlockShape> {
         val set = BlocksRamp.shapesFor(stage)
         val placeable = set.filter { board.hasSpot(it) }
         val finishers = if (board.size >= BlocksRamp.NEAR_COMPLETE_MIN_BOARD) placeable.filter { board.canFinishALine(it) } else emptyList()
@@ -36,9 +55,13 @@ object TrayDealer {
             if (finishers.isNotEmpty() && attempt % 2 == 0) trio[0] = finishers[random.nextInt(finishers.size)]
             if (placeable.isNotEmpty() && trio.none { it in placeable }) continue // rule 1 is never traded away
             val distinct = previousKey == null || trio.map { it.id }.sorted() != previousKey
-            val allFit = canPlaceAll(board, trio)
             val hasFinisher = finishers.isEmpty() || trio.any { it in finishers }
-            val rank = (if (distinct) 4 else 0) + (if (allFit) 2 else 0) + (if (hasFinisher) 1 else 0)
+            val base = (if (distinct) 4 else 0) + (if (hasFinisher) 1 else 0)
+            // Keep the first trio with a placeable block as the answer before spending anything on the rest.
+            if (best == null) { best = trio; bestRank = base }
+            if (budget.left <= 0) break
+            val allFit = search(board, trio, budget, SEARCH_BUDGET)
+            val rank = base + (if (allFit) 2 else 0)
             if (rank > bestRank) { best = trio; bestRank = rank }
             if (rank == 7) break
         }
@@ -53,10 +76,17 @@ object TrayDealer {
      * Can every block in [trio] be placed one after another, in some order, on [board]? Lines that a placement
      * completes are cleared before the next block, as they are in the game. Stops looking after
      * [SEARCH_BUDGET] placements and answers yes: a board with that many ways to place things has room.
+     * (Inside a deal, running out of the deal's whole allowance answers no instead: nothing is claimed unchecked.)
      */
-    fun canPlaceAll(board: Board, trio: List<BlockShape>): Boolean = search(board, trio, intArrayOf(SEARCH_BUDGET))
+    fun canPlaceAll(board: Board, trio: List<BlockShape>): Boolean = search(board, trio, Budget(SEARCH_BUDGET), SEARCH_BUDGET)
 
-    private fun search(board: Board, remaining: List<BlockShape>, budget: IntArray): Boolean {
+    /** Depth-first over every order and spot; each placement tried costs one unit of [budget]. Running out answers yes. */
+    private fun search(board: Board, remaining: List<BlockShape>, budget: Budget, cap: Int): Boolean {
+        val own = intArrayOf(cap)
+        return search(board, remaining, budget, own)
+    }
+
+    private fun search(board: Board, remaining: List<BlockShape>, budget: Budget, own: IntArray): Boolean {
         if (remaining.isEmpty()) return true
         if (remaining.size == 1) return board.hasSpot(remaining[0])
         for (i in remaining.indices) {
@@ -64,8 +94,9 @@ object TrayDealer {
             if (remaining.subList(0, i).any { it.id == shape.id }) continue // same block twice: one order is enough
             val rest = remaining.filterIndexed { j, _ -> j != i }
             for (spot in board.spots(shape)) {
-                if (budget[0]-- <= 0) return true
-                if (search(board.placeAndClear(shape, spot.row, spot.col).board, rest, budget)) return true
+                if (own[0]-- <= 0) return true      // this search has looked long enough: plenty of room, probably
+                if (!budget.spend()) return false   // the deal's whole allowance is gone: claim nothing more
+                if (search(board.placeAndClear(shape, spot.row, spot.col).board, rest, budget, own)) return true
             }
         }
         return false

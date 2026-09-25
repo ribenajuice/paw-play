@@ -25,7 +25,8 @@ import kotlin.math.sin
 // Everything here draws in dp-like units from the numbers in docs/DESIGN-SYSTEM.md: the caller scales the
 // canvas by the screen density (or, for the home tile, by tile size / 146) so nothing is a pixel count.
 
-private fun svg(d: String): Path = PathParser().parsePathString(d).toPath()
+/** An SVG path string as a Compose path; called once per picture (at load), never per frame. */
+internal fun svg(d: String): Path = PathParser().parsePathString(d).toPath()
 
 /** The eight marks as paths in a unit box from -0.5 to +0.5 (y down), exactly as in the design. */
 private object MarkArt {
@@ -65,8 +66,8 @@ private fun DrawScope.solidOval(cx: Float, cy: Float, rx: Float, ry: Float, colo
 }
 
 /**
- * One mark on a cell: [size] is the whole box (62% of the cell side), centred on ([cx], [cy]). [cell] is the
- * block colour, used for the fish's eye and the leaf's vein. Pictures only, always upright.
+ * One mark on a cell: [size] is the whole box (62% of the cell side), centred on ([cx], [cy]). The fish's eye and
+ * the leaf's vein are cut out in the family colour. Pictures only, always upright.
  */
 internal fun DrawScope.drawMark(family: Family, cx: Float, cy: Float, size: Float, alpha: Float = 1f) {
     val ink = family.markColor
