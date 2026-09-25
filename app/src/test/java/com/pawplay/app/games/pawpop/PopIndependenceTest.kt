@@ -21,27 +21,48 @@ class PopIndependenceTest {
         f.readLines().filterNot { it.trimStart().startsWith("//") || it.trimStart().startsWith("*") || it.trimStart().startsWith("/*") }.joinToString("\n")
 
     @Test
-    fun `no text, network, intents, links, ads, billing, audio or storage anywhere in the Paw Pop package`() {
+    fun `no text, network, intents, links, ads, billing, audio or direct storage anywhere in the Paw Pop package`() {
+        // Amended 2026-09-25: Paw Pop reaches its saved best only through data/BestScore (its own key), never SharedPreferences,
+        // files or a database itself; everything else on this list is still never allowed.
         val banned = listOf(
             "Text(", "BasicText", "stringResource", "java.net", "okhttp", "HttpURLConnection", "Intent", "startActivity", "Uri", "WebView", "LocalUriHandler",
             "billing", "admob", "firebase", "analytics", "MediaPlayer", "SoundPool", "ToneGenerator", "AudioTrack", "AudioManager", "INTERNET", "SharedPreferences", "DataStore", "openFileOutput", "File(",
-            "Vibrator", "HapticFeedback", "Toast",
+            "getSharedPreferences", "FileOutputStream", "Vibrator", "HapticFeedback", "Toast", "Settings.",
         )
         val files = popSources()
-        assertEquals("the scan must see every file", 8, files.size)
+        assertEquals("the scan must see every file", 9, files.size)
         for (f in files) {
             val text = code(f)
             for (b in banned) assertFalse("${f.name} contains '$b'", text.contains(b, ignoreCase = b.first().isLowerCase()))
         }
     }
 
+    /**
+     * Amended 2026-09-25 (PRD stories 68-73): a score, three paws, a best score and a kind ending are allowed. Still never: a
+     * combo, streak, multiplier, countdown, currency, purchase, leaderboard, sharing, "continue" or "revive", or a sad ending.
+     */
     @Test
-    fun `nothing is scored, counted for show, timed or lost, and no number or countdown is drawn`() {
+    fun `there is a score, paws and a kind ending, but no combo, streak, countdown, currency, comparison or continue in the code`() {
         val text = popSources().joinToString("\n") { code(it) }
-        for (word in listOf("score", "combo", "streak", "highScore", "gameOver", "game over", "countdown", "lives", "lifeCount", "leaderboard", "coin", "currency", "purchase"))
-            assertFalse("'$word' in Paw Pop code", text.contains(word, ignoreCase = true))
-        // nothing is drawn as text: no Text, no drawText, no text measurer
+        for (word in listOf("combo", "streak", "multiplier", "countdown", "leaderboard", "coin", "currency", "purchase", "revive", "extra life", "share", "gem"))
+            assertFalse("'$word' in Paw Pop code", Regex("\\b${Regex.escape(word)}", RegexOption.IGNORE_CASE).containsMatchIn(text))
+        for (word in listOf("game over!", "you lost", "try again", "\"game over\""))
+            assertFalse("wording '$word' in Paw Pop code", text.contains(word, ignoreCase = true))
+        assertTrue(text.contains("GoodGameScreen"))
+        assertTrue(text.contains("START_PAWS"))
+        // nothing is drawn as text: no Text, no drawText, no text measurer (the score is the shared ScoreNumber)
         for (word in listOf("drawText", "TextMeasurer", "rememberTextMeasurer", "NativeCanvas", "nativeCanvas")) assertFalse(word, text.contains(word))
+    }
+
+    @Test
+    fun `Paw Pop reaches shared code only through data and ui, owns its own key, and never names Paw Blocks or its key`() {
+        val code = popSources().joinToString("\n") { it.readText() }
+        assertFalse(code.contains("games.pawblocks"))
+        assertFalse(code.contains("best.paw-blocks"))
+        assertTrue(code.contains("\"best.paw-pop\""))
+        val shared = Regex("^import com\\.pawplay\\.app\\.(data|ui)\\.(\\w+)", RegexOption.MULTILINE).findAll(code).map { it.groupValues[1] + "." + it.groupValues[2] }.toSet()
+        val allowed = setOf("data.BestScore", "data.rememberBestScore", "ui.GoodGameScreen", "ui.PawLivesRow", "ui.PAW_FADE_MS", "ui.ScoreNumber", "ui.theme")
+        assertTrue("unexpected shared imports: ${shared - allowed}", allowed.containsAll(shared))
     }
 
     private fun crossGameImports(): List<String> =
@@ -84,9 +105,12 @@ class PopIndependenceTest {
     }
 
     @Test
-    fun `the game keeps nothing between plays`() {
+    fun `the game keeps nothing between plays but the best score, which lives in data`() {
         val text = popSources().joinToString("\n") { code(it) }
         for (word in listOf("rememberSaveable", "SavedState", "Bundle", "Parcel", "Preferences", "Serializable", "ObjectOutputStream")) assertFalse(word, text.contains(word))
+        // a saved paw count, stage or progress would be a second thing kept: the only write is the best score
+        assertEquals(1, Regex("\\.submit\\(").findAll(text).count())
+        assertFalse(text.contains("best.paw-pop\"") && text.contains(".write("))
     }
 
     @Test

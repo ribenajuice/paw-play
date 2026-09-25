@@ -25,21 +25,37 @@ object PopMetrics {
     const val STAR_SPEED = 0.9f          // screen heights per second
     const val FAN_DEGREES = 12f
     const val STAR_LAUNCH_ABOVE_NOSE = 6f
-    const val STAR_EXIT_MARGIN = 30f
+    const val STAR_EXIT_MARGIN = 30f     // sideways only: a star that leaves by a side is removed this far outside
     const val HIT_REACH = 8f             // a star centre this close to the drawn edge is a hit
     const val BIG_HIT_REACH = 28f
 
-    // ---- targets
-    const val EDGE_CLEAR = 8f            // sway-included distance kept from the side edges
+    // ---- targets (story 66, 67)
+    const val SKY_TOP = 100f             // the entry line, dp from the top of the play area: the cloud bank's lowest points. Targets come from above it, stars end at it
+    const val EDGE_CLEAR = 8f            // a target's body stays this far from the side edges
     const val APPEAR_GAP = 12f           // a new target is at least this clear of every other
-    const val SWAY_SECONDS = 3f
     const val FADE_BAND = 0.1f           // a miss fades over the last tenth of the height
     const val FIRST_SPAWN_AT = 0.05f
-    const val FIRST_TARGET_TOP = 40f     // the first target's body reaches down to this line: already partly on screen
     const val EMPTY_SCREEN_WAIT = 0.5f   // next target within this long once nothing is left (PRD: within 1s)
     const val SPAWN_RETRY = 0.3f
-    const val SMALL_SIZE = 72
-    const val CARRIER_MIN_SIZE = 96
+    const val MIN_TARGET_SIZE = 56       // nothing is ever smaller (was 72)
+    const val MIN_CRITTER_SIZE = 64
+    const val CARRIER_MIN_SIZE = 72      // was 96; the 48dp gift still fits inside (founder-approved 2026-09-25)
+    const val MIN_TURN_GAP = 0.9f        // no two turns are closer than this (seconds)
+    const val NO_TURN_AFTER_ENTRY = 0.5f // a target makes no turn in its first half second below the line
+    const val MAX_PATH_SPEED = 0.2f      // along its path a target never moves faster than this (screen heights a second)
+    const val REPICK_LIMIT = 0.25f       // from stage 3, speed is re-picked at each turn by at most this fraction
+    const val VEIL_ALPHA = 0.5f          // a target still above the line is drawn at half opacity
+    const val SOLID_SECONDS = 0.15f      // and turns solid over this long once it is below the line
+
+    // ---- score, paws and the ending (stories 68, 69)
+    const val START_PAWS = 3
+    const val POP_POINTS = 1
+    const val CARRIER_POINTS = 3
+    const val MAX_SCORE = 999_999
+    const val GRACE_SECONDS = 3f         // after a paw is lost, misses cost nothing for this long
+    const val GRACE_FADE_IN = 0.3f       // the ship's peach glow fades in over this long
+    const val GRACE_FADE_OUT = 0.5f      // and out over the last of the grace
+    const val ENDING_SECONDS = 0.5f      // targets fade softly this long once the third paw is lost
 
     // ---- carriers and gifts
     const val FIRST_CARRIER_AFTER = 4    // ordinary targets before the first carrier, so it is the 5th target
@@ -76,33 +92,65 @@ object PopMetrics {
     // ---- the home button, as in the other games
     const val HOME_SIZE = 56f
     const val HOME_INSET = 20f
+
+    // ---- the top strip and cloud bank (docs/DESIGN-SYSTEM.md, "Pop: the top strip, the entry line and a lost paw")
+    const val PAWS_LEFT = 92f            // x of the first paw; the strip is home, paws, score
+    const val PAWS_TOP = 32f             // vertically centred on the home button
+    const val SCORE_MARGIN_RIGHT = 20f
+    const val STRIP_TOP = 20f
+    const val BANK_STRAIGHT = 86f        // the bank's straight part ends here; scallops hang from it to SKY_TOP
+    const val SCALLOP_WIDTH = 24f
 }
 
+/** How many scallops the bank has on a play area [width] dp wide: 15 on the reference 360dp, each about 24dp wide. */
+fun bankScallops(width: Float): Int = kotlin.math.ceil(width / PopMetrics.SCALLOP_WIDTH - 1e-4f).toInt().coerceAtLeast(1)
+
+/** The peach glow's strength while the grace window has [graceLeft] seconds left: in over 0.3s, steady, out over the last 0.5s. */
+fun graceGlow(graceLeft: Float): Float {
+    if (graceLeft <= 0f) return 0f
+    val elapsed = PopMetrics.GRACE_SECONDS - graceLeft
+    val fadeIn = (elapsed / PopMetrics.GRACE_FADE_IN).coerceIn(0f, 1f)
+    val fadeOut = (graceLeft / PopMetrics.GRACE_FADE_OUT).coerceIn(0f, 1f)
+    return minOf(fadeIn, fadeOut)
+}
+
+/** Where the game is: playing, the last paw just fell and targets are fading (0.5s), or over (the good-game screen shows). */
+enum class PopPhase { PLAYING, ENDING, OVER }
+
 /**
- * One row of the PRD's ramp table. Stages are invisible to the child and are counted in hidden pops (targets popped
- * by any means, this session). [drift] is per screen height per second; [colours] index [PopPalette].
+ * One row of the PRD's ramp table (revised 2026-09-25). Stages are invisible to the child and are counted in hidden pops
+ * (targets popped by any means, this session). [driftMin]..[driftMax] is the downward speed in screen heights a second,
+ * picked per target; [turnDegrees] is the angle from straight down of each leg, [runMin]..[runMax] the seconds of straight
+ * run before a turn, [repickSpeed] whether the speed is re-picked at every turn (stage 3 and up). At stage 5 about
+ * [smallChance] of the targets are [minSize]..[smallMax] and the rest [smallMax] + 1..[maxSize]. [colours] index [PopPalette].
  */
 class PopStage(
     val number: Int,
     val startsAtPops: Int,
     val spawnEvery: Float,
-    val drift: Float,
     val maxTargets: Int,
     val kinds: List<TargetKind>,
     val colours: IntArray,
     val minSize: Int,
     val maxSize: Int,
-    val sway: Float,
-    val smallChance: Float,
+    val driftMin: Float,
+    val driftMax: Float,
+    val turnDegrees: Float,
+    val runMin: Float,
+    val runMax: Float,
+    val repickSpeed: Boolean,
+    val smallChance: Float = 0f,
+    val smallMax: Int = 0,
 )
 
 /**
- * | Stage | Starts after | New target every | Drift (sh/s) | Max | What is new                               |
- * | 1     | start        | 3.5 s            | 0.07         | 4   | round bubbles, 3 colours, 104-112dp       |
- * | 2     | 10 pops      | 3.0 s            | 0.08         | 5   | + oval balloons, 5 colours, 96-104dp      |
- * | 3     | 25 pops      | 2.5 s            | 0.09         | 6   | + heart and moon balloons, all 6 colours  |
- * | 4     | 45 pops      | 2.0 s            | 0.10         | 7   | + critter bubbles, 88-104dp               |
- * | 5     | 70 pops      | 1.7 s            | 0.11         | 8   | + a few small 72dp targets, sway 24dp     |
+ * | Stage | Starts after | New target every | Max | Size    | Downward speed | Turn | Run       | What is new                       |
+ * | 1     | start        | 3.5 s            | 4   | 88-96   | 0.06-0.09      | 20   | 2.5-3.5 s | round bubbles only, 3 colours     |
+ * | 2     | 24 pops      | 3.0 s            | 5   | 80-96   | 0.06-0.10      | 30   | 2.0-3.0 s | + oval balloons, 5 colours        |
+ * | 3     | 60 pops      | 2.5 s            | 6   | 72-88   | 0.07-0.11      | 40   | 1.5-2.5 s | + heart and moon, speed re-picked |
+ * | 4     | 108 pops     | 2.0 s            | 7   | 64-80   | 0.07-0.12      | 45   | 1.2-2.0 s | + critter bubbles                 |
+ * | 5     | 165 pops     | 1.7 s            | 8   | 56-72   | 0.08-0.12      | 50   | 0.9-1.6 s | smallest and sharpest             |
+ * The pop counts are the ones tuned by measuring scripted players (docs/DECISIONS.md, 2026-09-26).
  */
 object PopRamp {
     private val round = listOf(TargetKind.ROUND)
@@ -111,11 +159,11 @@ object PopRamp {
     private val all = withHeartMoon + TargetKind.CRITTER
 
     val stages: List<PopStage> = listOf(
-        PopStage(1, 0, 3.5f, 0.07f, 4, round, intArrayOf(0, 2, 4), 104, 112, 16f, 0f),
-        PopStage(2, 24, 3.0f, 0.08f, 5, withOval, intArrayOf(0, 1, 2, 4, 5), 96, 104, 16f, 0f),
-        PopStage(3, 60, 2.5f, 0.09f, 6, withHeartMoon, intArrayOf(0, 1, 2, 3, 4, 5), 96, 104, 16f, 0f),
-        PopStage(4, 108, 2.0f, 0.10f, 7, all, intArrayOf(0, 1, 2, 3, 4, 5), 88, 104, 16f, 0f),
-        PopStage(5, 165, 1.7f, 0.11f, 8, all, intArrayOf(0, 1, 2, 3, 4, 5), 88, 104, 24f, 0.2f),
+        PopStage(1, 0, 3.5f, 4, round, intArrayOf(0, 2, 4), 88, 96, 0.06f, 0.09f, 20f, 2.5f, 3.5f, false),
+        PopStage(2, 24, 3.0f, 5, withOval, intArrayOf(0, 1, 2, 4, 5), 80, 96, 0.06f, 0.10f, 30f, 2.0f, 3.0f, false),
+        PopStage(3, 60, 2.5f, 6, withHeartMoon, intArrayOf(0, 1, 2, 3, 4, 5), 72, 88, 0.07f, 0.11f, 40f, 1.5f, 2.5f, true),
+        PopStage(4, 108, 2.0f, 7, all, intArrayOf(0, 1, 2, 3, 4, 5), 64, 80, 0.07f, 0.12f, 45f, 1.2f, 2.0f, true),
+        PopStage(5, 165, 1.7f, 8, all, intArrayOf(0, 1, 2, 3, 4, 5), 56, 72, 0.08f, 0.12f, 50f, 0.9f, 1.6f, true, 1f / 3f, 64),
     )
 
     fun stageFor(pops: Int): PopStage {

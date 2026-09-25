@@ -193,7 +193,7 @@ class PopQaTest {
         for (h in listOf(568f, 740f, 880f, 1280f, 1366f)) {
             val step = PopMetrics.STAR_SPEED * h * PopMetrics.MAX_STEP
             for (kind in TargetKind.ALL) {
-                val smallest = PopMetrics.SMALL_SIZE.toFloat()
+                val smallest = PopMetrics.MIN_TARGET_SIZE.toFloat()
                 val hitHeight = 2f * (kind.ry * smallest + PopMetrics.HIT_REACH)
                 assertTrue("$kind on a ${h.toInt()}dp screen: star moves $step per frame, target is only $hitHeight tall", hitHeight > step)
             }
@@ -218,7 +218,7 @@ class PopQaTest {
             val y0 = t.y
             s.holdFireForTest = true
             s.step(FRAME)
-            assertEquals("drift", PopRamp.stages[i + 1].drift * s.height * FRAME, t.y - y0, 0.01f)
+            assertEquals("drift", PopRamp.stages[i + 1].driftMin * s.height * FRAME, t.y - y0, 0.01f)
         }
     }
 

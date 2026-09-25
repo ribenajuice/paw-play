@@ -1,14 +1,18 @@
 package com.pawplay.app.games.pawpop
 
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
 import com.pawplay.app.ui.theme.PawSunshine
@@ -36,8 +40,52 @@ private val DotWhite = Color.White.copy(alpha = 0.8f)
 
 internal fun skyBrush(h: Float): Brush = Brush.verticalGradient(listOf(PopSkyTop, PopSkyBottom), startY = 0f, endY = h)
 
-/** Pale-blue sky top to bottom with six clouds and nine dots, placed as fractions of the play area. Nothing in it moves. */
-internal fun DrawScope.drawSky(w: Float, h: Float, brush: Brush) {
+// ------------------------------------------------------------------ the cloud bank (the strip, and the entry line at its lowest points)
+
+private val BankFill = PopBankWhite.copy(alpha = 0.38f)
+private val BankEdge = PopBankWhite.copy(alpha = 0.90f)
+private val BankEdgeStroke = Stroke(3f, join = StrokeJoin.Round)
+
+/** The bank's body: from above the screen down to its straight part, then [bankScallops] half-ellipses hanging to [PopMetrics.SKY_TOP]. */
+internal fun bankBody(w: Float): Path {
+    val n = bankScallops(w)
+    val sw = w / n
+    val top = PopMetrics.BANK_STRAIGHT
+    val ry = PopMetrics.SKY_TOP - top
+    return Path().apply {
+        moveTo(-4f, -4f)
+        lineTo(w + 4f, -4f)
+        lineTo(w + 4f, top)
+        lineTo(w, top)
+        for (i in n - 1 downTo 0) arcTo(Rect(i * sw, top - ry, (i + 1) * sw, top + ry), 0f, 180f, false) // right to left, through the bottom
+        lineTo(-4f, top)
+        close()
+    }
+}
+
+/** Just the scalloped lower edge, left to right, for the 3dp white line. */
+private fun bankEdgePath(w: Float): Path {
+    val n = bankScallops(w)
+    val sw = w / n
+    val top = PopMetrics.BANK_STRAIGHT
+    val ry = PopMetrics.SKY_TOP - top
+    return Path().apply {
+        moveTo(0f, top)
+        for (i in 0 until n) arcTo(Rect(i * sw, top - ry, (i + 1) * sw, top + ry), 180f, -180f, false)
+    }
+}
+
+/** Everything of the play area below the bank's scalloped edge: where a target still coming in is clipped to. */
+internal fun belowBank(w: Float, h: Float): Path =
+    Path.combine(PathOperation.Difference, Path().apply { addRect(Rect(-4f, -4f, w + 4f, h + 4f)) }, bankBody(w))
+
+internal class PopBank(w: Float) {
+    val body: Path = bankBody(w)
+    val edge: Path = bankEdgePath(w)
+}
+
+/** Pale-blue sky top to bottom with six clouds and nine dots, placed as fractions of the play area, and the cloud bank across the top. Nothing in it moves. */
+internal fun DrawScope.drawSky(w: Float, h: Float, brush: Brush, bank: PopBank) {
     drawRect(brush, Offset.Zero, Size(w, h))
     for (ci in CloudRefs.indices) {
         val c = CloudRefs[ci]
@@ -49,6 +97,8 @@ internal fun DrawScope.drawSky(w: Float, h: Float, brush: Brush) {
         cloudPart(x + 26f * s, y + 4f * s, 24f * s, 10f * s)
     }
     for (di in DotRefs.indices) drawCircle(DotWhite, 2.2f, Offset(DotRefs[di][0] / 360f * w, DotRefs[di][1] / 692f * h))
+    drawPath(bank.body, BankFill)
+    drawPath(bank.edge, BankEdge, style = BankEdgeStroke)
 }
 
 private fun DrawScope.cloudPart(cx: Float, cy: Float, rx: Float, ry: Float) {
@@ -79,19 +129,32 @@ internal fun easeOut(k: Float): Float {
     return 1f - u * u * u
 }
 
-internal fun DrawScope.drawScene(ui: PopUi) {
+internal fun DrawScope.drawScene(ui: PopUi, belowBank: Path) {
     val s = ui.session
     val flame = s.wrapped(1.0)
     val slow = s.slowLeft > 0f
+    val over = s.phase == PopPhase.OVER
 
-    // Targets, oldest first: two swaying targets that overlap simply pass over each other. Misses fade here, behind the ship.
+    // Targets, oldest first: two targets that cross simply pass over each other. Misses fade here, behind the ship.
+    // A target still above the entry line is clipped by the bank's lower edge and drawn veiled (half opacity, dashed rim);
+    // one that has just come below it turns solid over 150ms.
+    val giftClock = s.wrapped(1.6)
     for (i in 0 until s.targetCount) {
         val tg = s.target(i)
-        drawTarget(tg.kind, tg.colour, tg.critter, tg.size, tg.x, tg.y, alpha = tg.alpha, halo = slow, gift = tg.gift, giftT = s.wrapped(1.6) + tg.phase)
+        if (!tg.entered) {
+            clipPath(belowBank) {
+                drawTarget(tg.kind, tg.colour, tg.critter, tg.size, tg.x, tg.y, alpha = tg.alpha * PopMetrics.VEIL_ALPHA, halo = slow, gift = tg.gift, giftT = giftClock + tg.critter * 0.4f, veiled = true)
+            }
+        } else {
+            val solid = (tg.sinceEntered / PopMetrics.SOLID_SECONDS).coerceIn(0f, 1f)
+            val veil = PopMetrics.VEIL_ALPHA + (1f - PopMetrics.VEIL_ALPHA) * solid
+            drawTarget(tg.kind, tg.colour, tg.critter, tg.size, tg.x, tg.y, alpha = tg.alpha * veil, halo = slow, gift = tg.gift, giftT = giftClock + tg.critter * 0.4f)
+        }
     }
 
-    if (s.waveActive) drawWave(s)
-    if (s.starEffect == GiftKind.RIBBON) drawRibbon(s)
+    // The wave and the ribbon end at the entry line, where the stars twinkle out, so they never run over the strip.
+    if (s.waveActive) clipRect(0f, PopMetrics.SKY_TOP, s.width, s.height + 10f) { drawWave(s) }
+    if (s.starEffect == GiftKind.RIBBON) clipRect(0f, PopMetrics.SKY_TOP, s.width, s.height + 10f) { drawRibbon(s) }
 
     for (i in 0 until s.starCount) {
         val st = s.stars[i]
@@ -100,9 +163,13 @@ internal fun DrawScope.drawScene(ui: PopUi) {
     }
 
     val cy = s.shipCentreY
+    // While a lost paw's grace window runs the ship glows soft peach (fades in over 0.3s and out over the last 0.5s; no pulse).
+    if (s.phase == PopPhase.PLAYING) drawGlow(s.shipX, cy, PopPeach, 62f, graceGlow(s.graceLeft))
     if (slow) drawGlow(s.shipX, cy, PopLilac, 76f, glowBreath(s.slowLeft))
     if (s.starEffect != null) drawGlow(s.shipX, cy, PawSunshine, 62f, glowBreath(s.starEffectLeft))
-    drawShip(s.shipX, cy, 1f + 0.08f * sin(TwoPiF * flame))
+    // When the game is over the ship rests at half opacity behind the good-game screen, its flame steady.
+    if (over) withGroupAlpha(0.5f, s.shipX, cy, 64f) { drawShip(s.shipX, cy, 1f) }
+    else drawShip(s.shipX, cy, 1f + 0.08f * sin(TwoPiF * flame))
 
     val g = s.gift
     if (g != null) {

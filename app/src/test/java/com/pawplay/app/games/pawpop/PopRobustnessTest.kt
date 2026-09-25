@@ -2,6 +2,7 @@ package com.pawplay.app.games.pawpop
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
@@ -98,28 +99,34 @@ class PopRobustnessTest {
 
     // ------------------------------------------------------------------ the fuzz
 
-    /** Hundreds of thousands of steps with random fingers, gifts, size changes and time steps, at every stage. */
+    /**
+     * Hundreds of thousands of steps with random fingers, gifts, size changes and time steps, at every stage. A game that ends
+     * (paws run out under a careless player) is replaced by a fresh one, which is what play again does.
+     */
     @Test
     fun `a long fuzz at every stage never throws, never exceeds a limit and never reaches a dead state`() {
         var totalSteps = 0
+        var endings = 0
         for (stageIndex in 0 until 5) for (seed in 1..4) {
             val r = Random(seed * 100 + stageIndex)
             var width = 360f; var height = 692f
-            val s = session(seed, PopRamp.stages[stageIndex].startsAtPops, width, height)
+            var s = session(seed, PopRamp.stages[stageIndex].startsAtPops, width, height)
             var lastTime = 0.0
             var lastPops = s.pops
+            var madeBefore = 0
+            var lastScore = s.score
+            var lastPaws = s.paws
             var lastSpawned = 0
             var lastSpawnAt = 0.0
             var lastTick = 0
             var lastTickAt = 0.0
-            var lastStars = 0
-            repeat(20000) { step ->
-                // random fingers, ids 0..5
+            repeat(20000) {
+                // random fingers, ids 0..5 (the even seeds are children who never touch the screen, so some games really end)
                 when (r.nextInt(40)) {
-                    0 -> s.touchDown(r.nextInt(6).toLong(), r.nextFloat() * (width + 100f) - 50f)
-                    1, 2, 3 -> s.touchMove(r.nextInt(6).toLong(), r.nextFloat() * (width + 100f) - 50f)
-                    4 -> s.touchUp(r.nextInt(6).toLong())
-                    5 -> s.touchCancel(r.nextInt(6).toLong())
+                    0 -> if (seed % 2 == 1) s.touchDown(r.nextInt(6).toLong(), r.nextFloat() * (width + 100f) - 50f)
+                    1, 2, 3 -> if (seed % 2 == 1) s.touchMove(r.nextInt(6).toLong(), r.nextFloat() * (width + 100f) - 50f)
+                    4 -> if (seed % 2 == 1) s.touchUp(r.nextInt(6).toLong())
+                    5 -> if (seed % 2 == 1) s.touchCancel(r.nextInt(6).toLong())
                     6 -> if (r.nextInt(10) == 0) s.touchCancelAll()
                     7 -> if (r.nextInt(6) == 0) s.arriveForTest(GiftKind.ALL[r.nextInt(5)])
                     8 -> if (r.nextInt(400) == 0) { width = 300f + r.nextFloat() * 150f; height = 480f + r.nextFloat() * 450f; s.setArea(width, height) }
@@ -128,64 +135,90 @@ class PopRobustnessTest {
                 s.step(dt)
                 totalSteps++
                 // limits
-                assertTrue(s.targetCount <= PopMetrics.MAX_TARGETS && s.targetCount <= s.stage.maxTargets.coerceAtLeast(0) + 0)
+                assertTrue(s.targetCount <= PopMetrics.MAX_TARGETS && s.targetCount <= s.stage.maxTargets)
                 assertTrue(s.starCount in 0..PopMetrics.MAX_STARS)
                 assertTrue(s.fxCount in 0..PopMetrics.MAX_FX)
                 assertTrue(s.sparkleCount in 0..PopMetrics.MAX_SPARKLES)
                 assertEquals(s.recountSparkles(), s.sparkleCount)
                 assertTrue(s.time >= lastTime); lastTime = s.time
                 assertTrue(s.pops >= lastPops); lastPops = s.pops
+                // score only goes up, paws only go down, and never outside 0..3
+                assertTrue(s.score >= lastScore); lastScore = s.score
+                assertTrue(s.paws in 0..PopMetrics.START_PAWS && s.paws <= lastPaws); lastPaws = s.paws
+                assertTrue((s.phase == PopPhase.PLAYING) == (s.paws > 0))
                 // sanity of every number the drawing reads
                 assertTrue(s.shipX.isFinite() && s.shipX >= 45f - 0.01f && s.shipX <= width - 45f + 0.01f)
                 for (i in 0 until s.targetCount) {
                     val t = s.target(i)
-                    assertTrue(t.x.isFinite() && t.y.isFinite() && t.alpha in 0f..1f && t.alpha > 0f)
-                    assertTrue(t.size in 72f..112f)
+                    assertTrue(t.x.isFinite() && t.y.isFinite() && t.alpha in 0f..1f)
+                    if (s.phase == PopPhase.PLAYING) assertTrue(t.alpha > 0f)
+                    assertTrue(t.size in 56f..112f)
+                    assertTrue("x ${t.x} size ${t.size} in ${s.width}", t.x - t.size / 2f >= PopMetrics.EDGE_CLEAR - 0.01f && t.x + t.size / 2f <= s.width - PopMetrics.EDGE_CLEAR + 0.01f)
                 }
                 for (i in 0 until s.starCount) assertTrue(s.stars[i].x.isFinite() && s.stars[i].y.isFinite())
                 assertTrue(s.starEffectLeft in 0f..8f && s.slowLeft in 0f..8f)
                 assertTrue((s.starEffect != null) == (s.starEffectLeft > 0f))
                 s.gift?.let { assertTrue(it.progress in 0f..1f) }
+                if (s.phase == PopPhase.OVER) { // the game is over: nothing is left, and a fresh game takes its place
+                    assertEquals(0, s.targetCount); assertEquals(0, s.starCount); assertNull(s.gift)
+                    endings++
+                    madeBefore += s.spawned
+                    s = session(seed + 50, PopRamp.stages[stageIndex].startsAtPops, width, height)
+                    lastPops = s.pops; lastScore = 0; lastPaws = s.paws; lastSpawned = 0; lastSpawnAt = s.time; lastTick = 0; lastTickAt = s.time
+                    lastTime = s.time
+                    return@repeat
+                }
                 // never dead: a target arrives at least every 12 s of play, the beat never stops, the ship keeps making stars unless the ribbon runs
-                if (s.spawned != lastSpawned) { lastSpawned = s.spawned; lastSpawnAt = s.time }
-                assertTrue("no target for ${s.time - lastSpawnAt}s at stage ${stageIndex + 1}", s.time - lastSpawnAt < 12.0)
-                if (s.fireTicks != lastTick) { lastTick = s.fireTicks; lastTickAt = s.time }
-                assertTrue("no beat for ${s.time - lastTickAt}s", s.time - lastTickAt < 0.5)
-                lastStars = s.starsLaunched
+                if (s.phase == PopPhase.PLAYING) {
+                    if (s.spawned != lastSpawned) { lastSpawned = s.spawned; lastSpawnAt = s.time }
+                    assertTrue("no target for ${s.time - lastSpawnAt}s at stage ${stageIndex + 1}", s.time - lastSpawnAt < 12.0)
+                    if (s.fireTicks != lastTick) { lastTick = s.fireTicks; lastTickAt = s.time }
+                    assertTrue("no beat for ${s.time - lastTickAt}s", s.time - lastTickAt < 0.5)
+                }
             }
-            assertTrue("stage ${stageIndex + 1} seed $seed made ${s.spawned} targets", s.spawned > 30)
+            assertTrue("stage ${stageIndex + 1} seed $seed made ${madeBefore + s.spawned} targets", madeBefore + s.spawned > 10)
         }
         assertTrue(totalSteps >= 400000)
+        assertTrue("some games should have ended along the way: $endings", endings >= 1)
     }
 
     @Test
-    fun `an idle child who never touches the screen still gets a calm game that neither ends nor piles up`() {
-        val s = session(21)
-        var most = 0
-        s.run(900f, 0.05f) { most = maxOf(most, it.targetCount) }
-        assertTrue(s.spawned > 200)
-        assertTrue("$most on screen", most <= PopMetrics.MAX_TARGETS)
-        assertTrue(s.pops > 0) // whatever drifts through the middle gets popped by the ship's own shots
-        assertEquals(180f, s.shipX, 0f)
+    fun `an idle child who never touches the screen gets a calm game that ends kindly, never piles up, and can be started again`() {
+        for (seed in 21..30) {
+            val s = session(seed)
+            var most = 0
+            var endedAt = -1.0
+            s.run(400f, 0.05f) { most = maxOf(most, it.targetCount); if (endedAt < 0 && it.phase == PopPhase.OVER) endedAt = it.time }
+            assertTrue("seed $seed: $most on screen", most <= PopMetrics.MAX_TARGETS)
+            assertEquals(PopPhase.OVER, s.phase)
+            assertEquals(0, s.paws)
+            assertTrue("seed $seed ended at $endedAt", endedAt in 15.0..200.0)
+            assertEquals(180f, s.shipX, 0f) // the ship never moved
+            // an ended game stays ended and empty, however long the screen stays open
+            assertEquals(0, s.targetCount)
+            s.run(30f, 0.05f)
+            assertEquals(PopPhase.OVER, s.phase)
+            assertEquals(0, s.targetCount)
+        }
     }
 
     @Test
-    fun `after the play area gets narrower every target, sway included, is still inside it, and keeps its place as a fraction of the width`() {
-        val s = session(1, 0, 400f, 700f); s.holdSpawnForTest = true; s.holdFireForTest = true
+    fun `after the play area gets narrower every target is still inside it and keeps its place as a fraction of the width`() {
+        val s = session(1, 0, 400f, 700f); s.holdSpawnForTest = true; s.holdFireForTest = true; s.holdPawsForTest = true
         val a = s.addTargetForTest(TargetKind.ROUND, 340f, 200f, 100f)
         val b = s.addTargetForTest(TargetKind.OVAL, 60f, 300f, 96f)
         s.setArea(200f, 700f)
         s.run(3f) { assertTrue("a at ${a.x}", a.x + a.size / 2 <= 200f + 0.01f && a.x - a.size / 2 >= -0.01f); assertTrue("b at ${b.x}", b.x - b.size / 2 >= -0.01f) }
-        assertTrue(a.x0 in 50f..150f)
+        assertTrue(a.x in 50f..150f)
         // and back out again: nothing snaps back to an old column
         s.setArea(400f, 700f)
         s.run(1f) { assertTrue(it.target(0).x in 0f..400f) }
-        // targets that keep sway on a narrow area never leave it either
-        val t = session(2, 165, 320f, 568f); t.holdFireForTest = true
+        // zig-zagging targets on a narrow area never leave it either
+        val t = session(2, 165, 320f, 568f); t.holdFireForTest = true; t.holdPawsForTest = true
         var n = 0
         t.run(120f) {
             if (n++ % 600 == 0) it.setArea(if ((n / 600) % 2 == 0) 320f else 240f, 568f)
-            for (i in 0 until it.targetCount) { val g = it.target(i); assertTrue("x ${g.x} size ${g.size} in ${it.width}", g.x - g.size / 2 >= -0.5f && g.x + g.size / 2 <= it.width + 0.5f) }
+            for (i in 0 until it.targetCount) { val g = it.target(i); assertTrue("x ${g.x} size ${g.size} in ${it.width}", g.x - g.size / 2f >= -0.5f && g.x + g.size / 2f <= it.width + 0.5f) }
         }
     }
 
