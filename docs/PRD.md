@@ -213,6 +213,8 @@ Rationale: the whole game is at most about 8 slow objects, the fastest thing tha
 
 **Out of scope for Milestone 6 (v2):** lives, damage, enemies that shoot back, bosses, waves or a finish, scores, combos, streaks, stars-as-score, timers, high scores (never: standing rule), gifts that are collected, kept, stacked or earned (never: pure delight), catch-the-gift, a fire button, two-player, tilt steering, landscape, saved progress, skins or ship choice, and any sound/music setting.
 
+**Design refinements from the mockup (2026-09-25; these adjust the wording above, not the intent):** (a) Gift carriers are only round bubbles and oval balloons: the moon and critter shells have no room for a gift of at least 48dp. (b) While the rainbow ribbon is active it replaces the stars rather than firing alongside them, since the stars would be hidden inside it; the fire pace is unchanged. (c) Missed targets only fade out behind the ship, with no bounce, because a bounce would read as a reaction. (d) Slow drift is shown as a soft lilac halo on each target plus a lilac ship glow.
+
 ### Milestone 7 — More to explore
 <!-- Sketch only. -->
 - A seventh game and beyond.
