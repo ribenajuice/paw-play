@@ -1,5 +1,6 @@
 package com.pawplay.app.games
 
+import com.pawplay.app.games.pawkitchen.PawKitchenGame
 import com.pawplay.app.games.pawmatch.PawMatchGame
 import com.pawplay.app.games.pawpour.PawPourGame
 
@@ -11,5 +12,6 @@ object GameCatalog {
     val games: List<MiniGame> = listOf(
         PawMatchGame,
         PawPourGame,
+        PawKitchenGame,
     )
 }

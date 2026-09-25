@@ -14,10 +14,15 @@ The home screen shows one picture tile per game. Tap a tile to play.
   - A wrong tap gives a tiny wobble. Nothing scolds.
   - If your child pours themselves into a dead end, the game quietly undoes the last pour or pours after a moment.
   - It has no sound yet.
+- **Paw Kitchen** — a tiny restaurant. A friendly animal shows up and asks for a dish in pictures: a burger, a pizza or an ice cream. Your child taps ingredients to build it. When the dish is exactly what was asked for, the serve button wakes up. Tap it and the customer cheers, then the next one arrives.
+  - Nothing is ever "wrong": extra ingredients are fine, the serve button just stays asleep until the dish matches.
+  - Orders start at 2 ingredients and grow to 5.
+  - New dishes can be added later without changing how the game works.
+  - It has no sound yet.
 
-Both games start over from round 1 when you leave to the home screen. Nothing is saved.
+All three games start over from the beginning when you leave to the home screen. Nothing is saved.
 
-More games are planned. See `docs/PRD.md`. Paw Kitchen, Paw Trace and Paw Blocks are in progress and not part of the app yet.
+More games are planned. See `docs/PRD.md`. Paw Trace and Paw Blocks are in progress and not part of the app yet.
 
 ## Build it on your computer
 

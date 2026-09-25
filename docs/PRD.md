@@ -70,9 +70,44 @@ Rationale: round 1 has three spare tubes so a 2-year-old can succeed almost by a
 
 **Out of scope for Milestone 2 (v2):** a manual undo or restart button (auto-undo covers it), hints, per-tube themes, saved progress, more than 9 tubes, and any sound/music setting.
 
-### Milestone 3 — More to explore
+### Milestone 3 — Third game on the shelf: Paw Kitchen
+*The founder's son loves cooking, so: a tiny restaurant. A friendly animal customer shows up and orders a dish as a **picture bubble**; the child builds it from ingredients and serves it. Working name **Paw Kitchen**, chosen by the team; renaming is a content-only change. Like Paw Pour, it must be a pure addition per `docs/ARCHITECTURE.md`: a new game package plus one `GameCatalog` line, no change to Paw Match, Paw Pour or the hub shell.*
+
+Vocabulary: an **order** is a dish plus the set of ingredients in its bubble; the **dish** is what the child is building on the counter; the **tray** is the row/grid of ingredients to tap.
+
+**Menu (three dishes, each with a 6-ingredient shelf; the base is always in the order).** Burger: bun, patty, cheese, tomato, lettuce, pickle. Pizza: dough, sauce, cheese, mushroom, olive, pepperoni. Ice cream: cone, strawberry scoop, chocolate scoop, cherry, sprinkles, wafer. An ingredient appears at most once per order; there are no quantities to count. **The founder confirmed this starting menu (2026-09-24) and asked that more dishes can be added later:** a dish is defined as content (a base, a shelf of up to 6 ingredients, and their pictures), so adding pancakes, sandwiches, soup or cupcakes later needs no change to how orders, the tray, serving or the ramp work, and never touches the other games.
+
+| # | Story | Acceptance criteria | Status |
+|---|---|---|---|
+| 19 | As a toddler, I want a third picture tile on the home screen for the cooking game, so that I can find it and start | Given the home screen, when it renders, then a third icon-only tile (a friendly animal in a chef hat with a dish) appears after Paw Pour; tapping it opens Paw Kitchen straight to the first customer, with no text, dialog or loading screen. Adding it required no change to Paw Match, Paw Pour or the home screen beyond the tile. A large home icon button is on screen at all times, in the same corner as the other games, and returns to the home screen | ☐ |
+| 20 | As a toddler, I want a customer to walk up and show me what they want as pictures, so that I know what to make without reading | Given the game starts or the previous customer has left, when a customer animal arrives, then a thought bubble shows the order as a row of ingredient pictures (no words or numbers), in the same bottom-to-top order the dish will build. The dish and ingredients are chosen at random within the current ramp step, and the order is never identical (same dish and same ingredient set) to the previous customer's. Each customer is a different animal from the one before | ☐ |
+| 21 | As a toddler, I want to tap an ingredient to put it on my dish and tap it again to take it off, so that building is easy and I can change my mind | Given the tray, when I tap an ingredient, then it hops onto the dish, snapped into its correct place (base at the bottom, the rest stacked above it in the bubble's order), with a soft pop sound; its tray slot stays in place as a faint outline. When I tap an ingredient on the dish, then it hops back to the tray. Any ingredient can be added or removed at any time, including ones not in the order; there is no drag, no long-press, no text. A picture in the bubble gets a soft glow while that ingredient is on the dish, so a non-reader can see what is still missing. Extras never trigger any warning, sound or colour | ☐ |
+| 22 | As a toddler, I want the tray to be easy to see and hit, so that I can build without frustration | Given any customer, then the tray shows exactly the "tray choices" for the current ramp step (3 to 6), all on screen with no scrolling, each ≥48dp in both directions (target ≥72dp, the ui-designer sizes to fit) with ≥8dp gaps. The tray holds only the current dish's ingredients: every ingredient in the order plus extras from the same dish's shelf, so every order is always makeable from its tray | ☐ |
+| 23 | As a colour-blind child, I want ingredients to look different by shape, so that I never have to rely on colour | Given any tray, then no two ingredients share a silhouette, and each stays identifiable in greyscale (the two ice-cream scoops differ by a mark, e.g. seed dots vs. chocolate chips, not just pink vs. brown). Ingredients are pictures only, never labelled with letters or numbers | ☐ |
+| 24 | As a toddler, I want a serve button that wakes up when my dish is right, so that I know when to hand it over | Given the dish, when it does not exactly match the order (something missing or an extra on it), then the serve button is visibly asleep (dimmed, still, no press effect) and tapping it does nothing, silently. When the dish exactly matches, then the button wakes with a gentle bounce and a soft chime; removing an ingredient puts it back to sleep. Nothing ever says "wrong" — there is no way to serve the wrong dish | ☐ |
+| 25 | As a toddler, I want the customer to be happy when I serve them and then a new one to come, so that it feels good and keeps going | Given a matching dish, when I tap serve, then the dish slides to the customer, who reacts happily (bounce, hearts or big smile, happy sound) with a small sparkle celebration for about 2 seconds; the customer then leaves happily and the next customer arrives and orders. There is no game-over, no score, coins, tips or stars, no timer, no waiting customer and no unhappy or leaving-angry customer, ever. Play continues until the child taps the home icon; leaving and coming back starts again at the first customer (session-only, nothing saved) | ☐ |
+| 26 | As a toddler, I want the orders to grow a little as I keep serving, so that it stays interesting | Given I keep serving customers, then orders follow the ramp table below and never exceed its cap. Customer 1 is always simple. No number or level is shown | ☐ |
+| 27 | As a parent, I want the standing rules to hold in this game too, so that I never have to watch | Given any Paw Kitchen screen, then no text or reading is needed, and there is no timer, score, currency, lose state, ad, purchase, login or external link (standing rule, see `CLAUDE.md`) | ☐ |
+| 28 | As a small child who mashes the screen, I want the game to stay calm, so that it never breaks or gets stuck | Given rapid or multi-finger tapping, then the game stays consistent: an ingredient is on the dish at most once; extra taps during the serve reaction are ignored; double-tapping serve serves once and brings exactly one next customer; the home icon works at every moment | ☐ |
+
+**Order-of-stacking decision: free.** The child chooses *which* ingredients, not *in what order*; the game snaps each one into its correct spot. A 2-year-old cannot judge or fix a sequence, and a hidden order rule would create a silent "wrong" that nothing on screen can explain, which breaks the no-scolding decision. The bubble still shows the finished order as a row so the dish looks like the picture.
+
+**Difficulty ramp** (by customers served this session; the dish is picked at random from all three from customer 1; "in order" counts the base, e.g. a 2-ingredient order is base plus one topping; "tray" is how many ingredients are on screen):
+
+| Customers | Ingredients in order | Tray choices | Extras in tray |
+|---|---|---|---|
+| 1–2 | 2 | 3 | 1 |
+| 3–4 | 3 | 4 | 1 |
+| 5–6 | 4 | 5 | 1 |
+| 7 and up (cap) | 5 | 6 (whole shelf) | 1 |
+
+Rationale: starts at two picture-matches, adds one thing every two customers, and caps at five (the founder's "about 5"). A tray of one extra keeps it makeable and gently tests looking, without ever needing a wrong answer. Six tap targets fit on a phone in two rows of three at ≥72dp with no scrolling.
+
+**Out of scope for Milestone 3 (v2):** unlockable or purchasable dishes and kitchens (never: standing rule), mixed-dish trays, cooking steps (chopping, timing, stirring), drag-and-drop, ingredient quantities ("two patties"), free-play with no customer, saved progress, and any sound/music setting.
+
+### Milestone 4 — More to explore
 <!-- Sketch only. -->
-- A third and fourth game.
+- A fourth game and beyond.
 - Possibly a per-game card-set/theme picker (animals, shapes, vehicles) using pictures, not text, inside Paw Match specifically.
 - Optional gentle background music with a single obvious on/off icon toggle, app-wide.
 
