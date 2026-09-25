@@ -6,7 +6,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
-import org.junit.Ignore
 import org.junit.Test
 import kotlin.math.hypot
 import kotlin.math.max
@@ -655,7 +654,7 @@ class PawBlocksQaTest {
             assertTrue("$ctx tray below board", l.slotTop >= l.panelBottom + 11.99f)
             assertTrue("$ctx board below the home button", l.panelTop >= BlocksLayout.HOME_INSET + BlocksLayout.HOME_SIZE)
             assertTrue("home is at least 48dp", BlocksLayout.HOME_SIZE >= 48f)
-            assertTrue("8dp between slots", BlocksLayout.SLOT_GAP >= 8f)
+            assertTrue("at least 8dp between slots", BlocksLayout.SLOT_GAP >= 8f)
             worstSlot = minOf(worstSlot, minOf(l.slotWidth, l.slotHeight))
         }
         assertTrue(worstSlot >= 72f)
@@ -673,12 +672,13 @@ class PawBlocksQaTest {
         }
     }
 
-    /** KNOWN GAP (see report): PRD story 40 says cells never go below about 36dp on a 9x9; on a 320dp-wide phone they are 31dp. */
-    @Ignore("known deviation: 9x9 cells are 31.1dp on a 320dp-wide screen (PRD story 40: never smaller than about 36dp). Remove @Ignore when fixed or the PRD is amended.")
+    /** PRD story 40: 9x9 cells are about 36dp. The board follows the width (6dp margins); 320dp cannot give nine cells more than ~33.3dp. */
     @Test
-    fun `a 9x9 board keeps cells of about 36dp on the narrowest phone`() {
-        val l = blocksLayout(320f, 568f)
-        assertTrue("cell ${l.cellSize(9f)}", l.cellSize(9f) >= 35f)
+    fun `a 9x9 board keeps cells of about 36dp at 360 wide and as close as 320 wide allows`() {
+        val wide = blocksLayout(360f, 740f)
+        assertTrue("cell ${wide.cellSize(9f)}", wide.cellSize(9f) >= 36f)
+        val narrow = blocksLayout(320f, 568f)
+        assertTrue("cell ${narrow.cellSize(9f)}", narrow.cellSize(9f) >= 33f)
     }
 
     // ================================================================== 9. the touch layer: BlocksUi

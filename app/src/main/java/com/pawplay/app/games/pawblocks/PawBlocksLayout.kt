@@ -8,10 +8,12 @@ import kotlin.math.min
 
 /**
  * Where things go on the Paw Blocks screen, as plain numbers in dp (docs/DESIGN-SYSTEM.md, "Board" and
- * "Tray"). The reference play area is 360 x 692dp: home 56dp at (20, 20); board panel 328dp at left 16, top 96
- * (grid 320dp inside a 4dp padding); tray slots 104 x 112dp at x 16, 128, 240 and top 508. On other screens the
- * panel narrows to fit the width and the tray, gaps and margins give way before anything gets small; the
- * slots never drop below 72dp and everything is on screen, no scrolling.
+ * "Tray"). The reference play area is 360 x 692dp: home 56dp at (20, 20); board panel 348dp at left 6, top 96
+ * (grid 340dp inside a 4dp padding, so a 9x9 cell is 37.8dp); tray slots 96 x 112dp with 12dp gaps, which
+ * puts their outer edges 24dp in from the screen sides (clear of the back-gesture strip), top at 508. On other
+ * screens the panel follows the width (never wider than 348, always 6dp in from the sides); on a 320dp phone a
+ * 9x9 cell is 33.3dp, which is about the most 320dp can give nine cells. The tray, gaps and margins give way
+ * before the board does, the slots never drop below 72dp, and everything is on screen, no scrolling.
  */
 class BlocksLayout(
     val width: Float,
@@ -50,12 +52,11 @@ class BlocksLayout(
 
     /**
      * The tray cell size for blocks dealt at [stage]: the board cell, or whatever lets the widest and tallest
-     * block of the stage's set sit inside a slot with 6dp all round (46 at stage 1, 30, 23, 18 on the reference screen).
+     * block of the stage's set sit inside a slot with 4dp all round (44 at stage 1, then 29, 29, 22, 22, 17 on the reference screen).
      */
     fun trayCell(stage: Int): Float {
-        val set = BlocksRamp.shapesFor(stage)
-        val byWidth = floor((slotWidth - 2 * SLOT_INNER) / set.maxOf { it.width })
-        val byHeight = floor((slotHeight - 2 * SLOT_INNER) / set.maxOf { it.height })
+        val byWidth = floor((slotWidth - 2 * SLOT_INNER) / BlocksRamp.widestFor(stage))
+        val byHeight = floor((slotHeight - 2 * SLOT_INNER) / BlocksRamp.tallestFor(stage))
         return min(cellSize(BlocksRamp.boardSizeFor(stage).toFloat()), min(byWidth, byHeight))
     }
 
@@ -75,48 +76,56 @@ class BlocksLayout(
         const val HOME_SIZE = 56f
         const val HOME_INSET = 20f
         const val PANEL_PADDING = 4f
-        const val SLOT_GAP = 8f
-        const val SLOT_INNER = 6f
-        const val REFERENCE_PANEL = 328f
-        const val SIDE_MARGIN = 16f
+        const val SLOT_GAP = 12f
+        const val SLOT_INNER = 4f
+        const val REFERENCE_PANEL = 348f      // the widest the board gets, however wide the phone
+        const val SIDE_MARGIN = 6f            // panel edge to screen edge: the board is never touched, so it may go near the edge
+        const val TRAY_SIDE_MARGIN = 24f      // tray edge to screen edge: keeps the outer slots off the back-gesture strip
         const val REFERENCE_TOP = 96f
+        const val MIN_TOP = 84f
         const val REFERENCE_SLOT_HEIGHT = 112f
-        const val REFERENCE_SLOT_WIDTH = 104f
+        const val REFERENCE_SLOT_WIDTH = 96f
         const val REFERENCE_BOTTOM_MARGIN = 72f
+        const val MIN_BOTTOM_MARGIN = 12f
+        const val MIN_GAP = 12f               // board to tray
+        const val REFERENCE_GAP = 24f
         const val MIN_SLOT = 72f
     }
 }
 
 /**
  * Lays the screen out for a play area [width] x [height] dp (inside any system bars). On the reference
- * 360 x 692 screen this is exactly the design: panel (16, 96, 328), slots at y 508. Wider screens keep the
- * design's sizes and centre; narrower ones (320dp) shrink the panel to width - 32 and the slots to a third of it.
- * Short screens give up bottom margin first, then slot height (down to 72), then the gap, then the top
- * margin, and only then the panel. Tall screens leave the tray near the bottom and put the extra room
- * partly above the board.
+ * 360 x 692 screen: panel (6, 96, 348), slots 96 x 112 at y 508. Wider screens keep those sizes and centre; narrower
+ * ones shrink the panel to width - 12 and the slots to fit 24dp in from each side (never under 72dp).
+ * Short screens give up, in this order, the tray's bottom margin (72 to 12), slot height (112 to 72), the gap
+ * above the tray (24 to 12) and the top margin (96 to 84), and only then shrink the panel. Tall screens leave the
+ * tray near the bottom and put a little of the extra room above the board.
  */
 fun blocksLayout(width: Float, height: Float): BlocksLayout {
     val w = max(width, 1f)
     val h = max(height, 1f)
     var panel = max(min(BlocksLayout.REFERENCE_PANEL, w - 2 * BlocksLayout.SIDE_MARGIN), 120f)
-    val slotW = min(BlocksLayout.REFERENCE_SLOT_WIDTH, (panel - 2 * BlocksLayout.SLOT_GAP) / 3f)
+    val slotW = max(
+        min(BlocksLayout.REFERENCE_SLOT_WIDTH, (w - 2 * BlocksLayout.TRAY_SIDE_MARGIN - 2 * BlocksLayout.SLOT_GAP) / 3f),
+        BlocksLayout.MIN_SLOT,
+    )
 
     var top = BlocksLayout.REFERENCE_TOP
     var bottom = BlocksLayout.REFERENCE_BOTTOM_MARGIN
     var slotH = BlocksLayout.REFERENCE_SLOT_HEIGHT
-    var gapMin = 24f
+    var gapMin = BlocksLayout.REFERENCE_GAP
     var deficit = top + panel + gapMin + slotH + bottom - h
 
     fun give(room: Float): Float { val t = min(max(deficit, 0f), room); deficit -= t; return t }
-    bottom -= give(bottom - 16f)
+    bottom -= give(bottom - BlocksLayout.MIN_BOTTOM_MARGIN)
     slotH -= give(slotH - BlocksLayout.MIN_SLOT)
-    gapMin -= give(gapMin - 12f)
-    top -= give(top - 88f)
+    gapMin -= give(gapMin - BlocksLayout.MIN_GAP)
+    top -= give(top - BlocksLayout.MIN_TOP)
     if (deficit > 0f) panel = max(panel - deficit, 120f)
 
     val slotTop = h - bottom - slotH
     val spare = slotTop - (top + panel)
-    val panelTop = if (spare > 84f) top + (spare - 84f) * 0.3f else top
+    val panelTop = if (spare > 64f) top + (spare - 64f) * 0.3f else top
     return BlocksLayout(
         width = w, height = h,
         panelLeft = (w - panel) / 2f, panelTop = panelTop, panelSize = panel,

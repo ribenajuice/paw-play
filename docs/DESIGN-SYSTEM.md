@@ -221,26 +221,26 @@ Chrome is unchanged (cream background, white surfaces, ink, 56dp home button, 29
 ### Board
 | Element | Spec |
 |---|---|
-| Panel | 328 x 328dp, left 16dp, top 96dp, white, radius 20, 3dp edge `#EADFCF`. Inner grid 320 x 320dp at (20, 100), which is 4dp padding. No scrolling ever |
-| Cell size | **320 / N dp** |
+| Panel | **348 x 348dp** on a 360dp phone (width minus 12, so 6dp from each side, never wider than 348 on any phone), left 6dp, top 96dp, white, radius 20, 3dp edge `#EADFCF`. Inner grid 340 x 340dp at (10, 100), which is 4dp padding. No scrolling ever. (Changed after QA: the first design had a 328dp panel and 35.6dp cells at 9x9; the board is never touched, so it may go close to the sides, and 9x9 cells are now 37.8dp at 360 wide and 33.3dp at 320 wide, about the most nine cells can have on 320dp.) |
+| Cell size | **grid / N dp** (340 / N on the reference screen) |
 | Empty cell | fill `#F4ECDF`, outline `#D9CCB8` (max(1.25dp, 2.5% of cell)), no mark. Inset 3% of the cell on every side, corner radius 22% of the cell |
 | Filled cell | same geometry, fill = family colour, rim ink `#2B2320` at 28% (max(1dp, 2.5%)), one mark on top (below) |
 
 | Stage | Board | Cell | Ghost | Tray cell (see below) |
 |---|---|---|---|---|
-| 1 | 5x5 | 64.0 | 3dp | 46 |
-| 2 | 5x5 | 64.0 | 3dp | 30 |
-| 3 | 6x6 | 53.3 | 3dp | 30 |
-| 4 | 7x7 | 45.7 | 4.5dp + glow | 23 |
-| 5 | 8x8 | 40.0 | 4.5dp + glow | 23 |
-| 6 | 9x9 | 35.6 | 4.5dp + glow | 18 |
+| 1 | 5x5 | 68.0 | 3dp | 44 |
+| 2 | 5x5 | 68.0 | 3dp | 29 |
+| 3 | 6x6 | 56.7 | 3dp | 29 |
+| 4 | 7x7 | 48.6 | 4.5dp + glow | 22 |
+| 5 | 8x8 | 42.5 | 4.5dp + glow | 22 |
+| 6 | 9x9 | 37.8 | 4.5dp + glow | 17 |
 
 Board cells are never touch targets. **Empty-cell vs Sunshine block is the weakest fill contrast at 1.23** (luminance ratio), which is why filled cells carry the ink rim and the mark and empty cells carry an outline and no mark; do not drop either.
 
 ### Tray
-- Three slots, **104 x 112dp**, left edges at x = 16, 128, 240 (8dp gaps, 16dp side margins), top at y = 508. The whole slot is the grab area. Slot resting = white, 3dp sunshine border, radius 20 (same as Paw Kitchen's tray tile). Slot with its block lifted = transparent, dashed `#DCCFC0` border (8 on, 7 off), block shown at 18% until it lands or glides home. Empty slot (block placed) = the same dashed outline, nothing inside.
-- **Tray cell = min(board cell, floor(92 / widest side in cells of any block in the stage's set))**: 46 at stage 1 (widest 2), 30 at stages 2-3 (3), 23 at stages 4-5 (4), 18 at stage 6 (5). The block is centred in its slot. On pick-up it grows to the full board cell over 120ms.
-- The home button (56dp, top-left at (20, 20)), the board and the tray never overlap; on stage 6 the bottom of the tray is at y = 620.
+- Three slots, **96 x 112dp**, left edges at x = 24, 132, 240 (12dp gaps, **24dp from each screen side**, which keeps the outer slots off the system back-gesture strip on gesture-navigation phones; a 320dp phone gets 82.7dp slots, still over 72), top at y = 508. The whole slot is the grab area. Slot resting = white, 3dp sunshine border, radius 20 (same as Paw Kitchen's tray tile). Slot with its block lifted = transparent, dashed `#DCCFC0` border (8 on, 7 off), block shown at 18% until it lands or glides home. Empty slot (block placed) = the same dashed outline, nothing inside.
+- **Tray cell = min(board cell, floor((slot width - 8) / widest side in cells of any block in the stage's set), and the same by height)**: 44 at stage 1 (widest 2), 29 at stages 2-3 (3), 22 at stages 4-5 (4), 17 at stage 6 (5). The block is centred in its slot. On pick-up it grows to the full board cell over 120ms.
+- The home button (56dp, top-left at (20, 20)), the board and the tray never overlap; on stage 6 the bottom of the tray is at y = 620. On short windows the tray's bottom margin (72 down to 12), then the slot height (112 down to 72), then the gap above the tray (24 down to 12), then the top margin (96 down to 84) give way before the board shrinks.
 
 ### Block encoding (for the developer)
 Cells are `[col, row]` offsets from the block's top-left, x to the right, y down. A block has an id, a family, and its cells. Width = max col + 1, height = max row + 1. Blocks never rotate; every orientation is its own entry.
@@ -267,7 +267,7 @@ Sixteen shapes, eight families: the colour and mark belong to the family, so a b
 - bone: rotate -40 degrees; rect x -0.3..0.3, y -0.1..0.1; four circles r 0.13 at (+-0.32, +-0.13).
 - paw: ellipses (cx, cy, rx, ry): pad (0, 0.2, 0.28, 0.24); toes (-0.36, -0.02, 0.11, 0.14), (-0.13, -0.27, 0.12, 0.15), (0.13, -0.27, 0.12, 0.15), (0.36, -0.02, 0.11, 0.14).
 - moon: `M0.25,-0.5 A0.5,0.5 0 1 0 0.25,0.5 A0.7,0.7 0 0 1 0.25,-0.5Z`
-At the smallest cell (35.6dp) a mark is about 22dp; in the stage-6 tray (18dp cell) about 11dp, where the picture is a reminder and the colour and silhouette do the work. Pictures only, never letters or numbers.
+At the smallest cell (37.8dp) a mark is about 23dp; in the stage-6 tray (17dp cell) about 11dp, where the picture is a reminder and the colour and silhouette do the work. Pictures only, never letters or numbers.
 
 **Luminance contrast (WCAG ratio, measured; the mockup page recomputes all 28 pairs live from the hexes).** Ladder, lightest to darkest, ratio to the family above:
 

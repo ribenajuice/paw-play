@@ -17,17 +17,17 @@ class PawBlocksLayoutTest {
     @Test
     fun `panel grid and tray follow the design numbers on the reference screen`() {
         val l = blocksLayout(360f, 692f)
-        near(16f, l.panelLeft); near(96f, l.panelTop); near(328f, l.panelSize)
-        near(20f, l.gridLeft); near(100f, l.gridTop); near(320f, l.gridSize)
-        near(104f, l.slotWidth); near(112f, l.slotHeight); near(508f, l.slotTop)
-        near(16f, l.slotLeftOf(0)); near(128f, l.slotLeftOf(1)); near(240f, l.slotLeftOf(2))
-        for (n in 5..9) near(320f / n, l.cellSize(n.toFloat()))
+        near(6f, l.panelLeft); near(96f, l.panelTop); near(348f, l.panelSize)
+        near(10f, l.gridLeft); near(100f, l.gridTop); near(340f, l.gridSize)
+        near(96f, l.slotWidth); near(112f, l.slotHeight); near(508f, l.slotTop)
+        near(24f, l.slotLeftOf(0)); near(132f, l.slotLeftOf(1)); near(240f, l.slotLeftOf(2))
+        for (n in 5..9) near(340f / n, l.cellSize(n.toFloat()))
     }
 
     @Test
-    fun `tray cells are 46, 30, 30, 23, 23 and 18 across the six stages`() {
+    fun `tray cells are 44, 29, 29, 22, 22 and 17 across the six stages`() {
         val l = blocksLayout(360f, 692f)
-        assertEquals(listOf(46f, 30f, 30f, 23f, 23f, 18f), (1..6).map { l.trayCell(it) })
+        assertEquals(listOf(44f, 29f, 29f, 22f, 22f, 17f), (1..6).map { l.trayCell(it) })
     }
 
     @Test
@@ -38,6 +38,21 @@ class PawBlocksLayoutTest {
     }
 
     @Test
+    fun `the panel follows the width to 6dp from the sides and never grows past 348`() {
+        near(304f + 4f, blocksLayout(320f, 640f).panelSize)
+        near(348f, blocksLayout(360f, 740f).panelSize)
+        near(348f, blocksLayout(411f, 880f).panelSize)
+        near(348f, blocksLayout(600f, 1000f).panelSize)
+        // 9x9 cells: 37.8 at 360 wide, 33.3 at 320 wide (nine cells cannot be much bigger on 320dp), and the same on a tall phone.
+        assertTrue(blocksLayout(360f, 740f).cellSize(9f) >= 37.7f)
+        assertTrue(blocksLayout(320f, 640f).cellSize(9f) >= 33.2f)
+        // The board is the last thing to shrink when the window is short.
+        val short = blocksLayout(360f, 520f)
+        assertTrue("short window cell ${short.cellSize(9f)}", short.cellSize(9f) >= 36f)
+        assertEquals(72f, short.slotHeight, 0.01f)
+    }
+
+    @Test
     fun `every screen from 320 x 480 to 480 x 1000 fits everything with room to grab`() {
         for (w in listOf(320, 340, 360, 384, 411, 430, 480)) for (h in listOf(480, 520, 568, 640, 692, 740, 800, 880, 1000)) {
             val l = blocksLayout(w.toFloat(), h.toFloat())
@@ -45,17 +60,21 @@ class PawBlocksLayoutTest {
             // Tray slots: the whole slot is the grab area, at least 72dp, 8dp apart.
             assertTrue("$tag slot width ${l.slotWidth}", l.slotWidth >= 72f)
             assertTrue("$tag slot height ${l.slotHeight}", l.slotHeight >= 72f)
-            near(8f, l.slotLeftOf(1) - (l.slotLeftOf(0) + l.slotWidth))
+            near(12f, l.slotLeftOf(1) - (l.slotLeftOf(0) + l.slotWidth))
             // Everything is inside the play area.
             assertTrue(tag, l.panelLeft >= 0f && l.panelRight <= w)
             assertTrue(tag, l.slotLeftOf(0) >= 0f && l.slotLeftOf(2) + l.slotWidth <= w + 0.01f)
-            assertTrue("$tag bottom", l.slotTop + l.slotHeight <= h - 15.99f)
+            assertTrue("$tag bottom", l.slotTop + l.slotHeight <= h - 11.99f)
             // Home, board and tray never overlap.
             val homeBottom = BlocksLayout.HOME_INSET + BlocksLayout.HOME_SIZE
             assertTrue("$tag home vs panel", l.panelTop >= homeBottom + 8f || l.panelLeft >= BlocksLayout.HOME_INSET + BlocksLayout.HOME_SIZE)
             assertTrue("$tag board vs tray", l.slotTop >= l.panelBottom + 11.99f)
-            // Cells shrink with the board but the smallest on a 360dp phone stays 35.5.
-            if (w >= 360 && h >= 568) assertTrue("$tag cell", l.cellSize(9f) >= 35.5f)
+            // On a tall enough phone a 9x9 cell is about 36dp or more at 360 wide, and about 33dp at 320 wide.
+            if (w >= 360 && h >= 568) assertTrue("$tag cell ${l.cellSize(9f)}", l.cellSize(9f) >= 36f)
+            if (w >= 320 && h >= 568) assertTrue("$tag cell ${l.cellSize(9f)}", l.cellSize(9f) >= 33f)
+            // The outer tray slots stay off the back-gesture strip at the screen sides on phones 360 wide or more.
+            if (w >= 360) assertTrue("$tag tray inset ${l.slotLeftOf(0)}", l.slotLeftOf(0) >= 24f - 0.01f && w - (l.slotLeftOf(2) + l.slotWidth) >= 24f - 0.01f)
+            if (w >= 320) assertTrue("$tag tray inset ${l.slotLeftOf(0)}", l.slotLeftOf(0) >= 24f - 0.01f)
             // Tray blocks are still a picture: 18dp or more on every real phone.
             if (h >= 568) for (stage in 1..6) assertTrue("$tag tray cell stage $stage = ${l.trayCell(stage)}", l.trayCell(stage) >= 14f)
             // Every tray block of every stage fits in its slot.
