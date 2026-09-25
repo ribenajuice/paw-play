@@ -1,6 +1,7 @@
 package com.pawplay.app.ui
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -74,5 +75,45 @@ class GoodGameMotionTest {
         assertTrue(m.newBestEndMs > m.FADE_MS + 2 * m.GLOW_PERIOD_MS)
         assertTrue("ends at ${m.newBestEndMs}", m.newBestEndMs in 3000..5000)
         assertEquals(500L, m.FADE_MS)
+    }
+
+    // ------------------------------------------------------------------ the clock
+
+    @Test
+    fun `the clock starts at its first frame and a new best turning up late never sends it back to zero`() {
+        val c = GoodGameClock()
+        val frame = 16_666_667L
+        var nanos = 5_000_000_000L
+        assertEquals(0L, c.sinceStartMs(nanos))
+        var last = 0L
+        var animate = false
+        // 1.5 seconds pass with no new best known: the fade is long over and the clock is done and resting.
+        while (last < 1500) {
+            nanos += frame
+            val t = c.sinceStartMs(nanos)
+            assertTrue("time only goes forward", t >= last)
+            last = t
+            assertEquals(minOf(t, m.FADE_MS), c.shownMs(t, animate))
+        }
+        assertTrue(c.isDone(last, animate))
+        assertEquals("the screen stays fully faded in", m.FADE_MS, c.shownMs(last, animate))
+        // The saved best is judged late: a new best. The clock carries on from where it is: it does not read 0 again.
+        animate = true
+        nanos += frame
+        val after = c.sinceStartMs(nanos)
+        assertTrue("still ${after}ms in, not back at 0", after >= last)
+        assertTrue("the fade stays complete: ${c.shownMs(after, animate)}", c.shownMs(after, animate) >= m.FADE_MS)
+        assertFalse(c.isDone(after, animate))
+        assertTrue(c.isDone(m.newBestEndMs, animate))
+        assertEquals(m.newBestEndMs, c.shownMs(m.newBestEndMs + 10_000, animate))
+    }
+
+    @Test
+    fun `without a new best the clock stops at the end of the fade, with one at the end of the celebration`() {
+        val c = GoodGameClock()
+        assertEquals(m.FADE_MS, c.endMs(false))
+        assertEquals(m.newBestEndMs, c.endMs(true))
+        assertFalse(c.isDone(m.FADE_MS - 1, false))
+        assertTrue(c.isDone(m.FADE_MS, false))
     }
 }

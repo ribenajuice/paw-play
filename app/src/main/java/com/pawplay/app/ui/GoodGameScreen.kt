@@ -24,8 +24,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.LongState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +53,7 @@ import com.pawplay.app.ui.theme.PawCream
 import com.pawplay.app.ui.theme.PawLeaf
 import com.pawplay.app.ui.theme.PawSky
 import com.pawplay.app.ui.theme.PawSunshine
+import kotlinx.coroutines.flow.first
 import kotlin.math.min
 
 // Sizes from docs/DESIGN-SYSTEM.md, "Good-game screen", in dp. The block below is drawn for a 300 x 440dp box.
@@ -102,15 +106,20 @@ fun GoodGameScreen(
     val context = LocalContext.current
     val animate = isNewBest && !animationsOff(context)
 
-    // One clock for every moving part, from the moment the screen appears; it stops when the last effect is over.
+    // One clock for every moving part, from the moment the screen appears. It is started once and never restarted, whatever
+    // `animate` does afterwards (a slow read of the saved best can turn it on late); it idles once the last effect is over.
     val clock = remember { mutableLongStateOf(0L) }
-    LaunchedEffect(animate) {
-        val end = if (animate) GoodGameMotion.newBestEndMs else GoodGameMotion.FADE_MS
-        val first = withFrameNanos { it }
+    val animateNow by rememberUpdatedState(animate)
+    LaunchedEffect(Unit) {
+        val c = GoodGameClock()
         while (true) {
-            val t = (withFrameNanos { it } - first) / 1_000_000L
-            clock.longValue = min(t, end)
-            if (t >= end) break
+            val t = c.sinceStartMs(withFrameNanos { it })
+            val a = animateNow
+            clock.longValue = c.shownMs(t, a)
+            if (c.isDone(t, a)) {
+                if (a) break
+                snapshotFlow { animateNow }.first { it } // rest until (unless) a new best turns up late
+            }
         }
     }
 

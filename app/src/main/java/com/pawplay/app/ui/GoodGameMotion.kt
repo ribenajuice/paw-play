@@ -58,3 +58,28 @@ object GoodGameMotion {
         return sin(PI.toFloat() * (s % TWINKLE_MS).toFloat() / TWINKLE_MS)
     }
 }
+
+/**
+ * The one clock for every moving part of the good-game screen, in milliseconds since the screen appeared. It starts
+ * on its first frame and never starts again, so a new-best verdict arriving late (a slow read of the saved best) cannot
+ * send the fade back to zero and blink the screen out while its buttons are live. Only where the clock may stop
+ * depends on [animate]: at the end of the fade, or (for a new best) at the end of the celebration.
+ */
+class GoodGameClock {
+    private var firstNanos = Long.MIN_VALUE
+
+    /** Milliseconds since the first frame this was asked about (0 for that frame). Never goes backwards on its own. */
+    fun sinceStartMs(frameNanos: Long): Long {
+        if (firstNanos == Long.MIN_VALUE) firstNanos = frameNanos
+        return maxOf(0L, (frameNanos - firstNanos) / 1_000_000L)
+    }
+
+    /** Where the last effect is over for this setting. */
+    fun endMs(animate: Boolean): Long = if (animate) GoodGameMotion.newBestEndMs else GoodGameMotion.FADE_MS
+
+    /** The value to show: the time, held at the end. */
+    fun shownMs(tMs: Long, animate: Boolean): Long = minOf(tMs, endMs(animate))
+
+    /** True once nothing more is left to animate for this setting (a later flip to [animate] can make it false again). */
+    fun isDone(tMs: Long, animate: Boolean): Boolean = tMs >= endMs(animate)
+}
