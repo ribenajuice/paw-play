@@ -105,7 +105,40 @@ Rationale: starts at two picture-matches, adds one thing every two customers, an
 
 **Out of scope for Milestone 3 (v2):** unlockable or purchasable dishes and kitchens (never: standing rule), mixed-dish trays, cooking steps (chopping, timing, stirring), drag-and-drop, ingredient quantities ("two patties"), free-play with no customer, saved progress, and any sound/music setting.
 
-### Milestone 4 — More to explore
+### Milestone 4 — Fourth game on the shelf: Paw Trace (shape-tracing game)
+*Stories numbered 29-38 provisionally; renumber when branches are integrated. "Paw Trace" is a working name and the tile's icon is a picture — renaming is a content-only change (game `id` stays `paw-trace`).*
+
+**Problem it solves:** a 2-5 year old needs low-pressure practice steering a finger with intent (hand-eye coordination, the same skill behind holding a crayon), and there is no "wrong" way to practise it. **Founder decisions (settled):** (1) paint colours only while the finger is on the path; off the path nothing happens, and he can lift and continue; (2) content ramps shapes, then numbers, then letters, purely by playing on — no locks, no visible levels, session-only (leaving resets to the start).
+
+| # | Story | Acceptance criteria | Status |
+|---|---|---|---|
+| 29 | As a toddler, I want a Paw Trace tile on the home screen that opens straight into tracing, so that I can start with one tap | Given the home screen, when it renders, then a picture-only Paw Trace tile (a paw leading a painted squiggle) is on the shelf; when I tap it, then the first glyph is on screen ready to trace, with no loading text or dialog. Given I am in the game, then the shared home icon is always visible in its usual corner and returns to the shelf from any moment, mid-stroke included | ☐ |
+| 30 | As a toddler, I want to see what to trace and where to begin without being told, so that I can just start | Given a glyph is showing, then it appears as a soft, wide, pale guide path filling most of the screen width, with a friendly animal (or glowing dot) bobbing gently at the start of the next unpainted stroke. Given I have not touched for ~5 seconds, then the marker slowly walks along the stroke once to show which way to go, and repeats after each further pause. No text, no numbers, no arrows that need interpreting | ☐ |
+| 31 | As a toddler, I want colour to appear only where my finger is on the path, so that nothing I do is ever wrong | Given my finger is on the guide path, when I drag, then bright paint fills the path under and behind it. Given my finger is off the path, then nothing happens: no colour, no red, no error sound, no restart, no counter. Given I lift my finger, when I touch down anywhere on the path again (not only where I stopped), then painting resumes and earlier paint stays | ☐ |
+| 32 | As a toddler, I want letters and numbers with more than one line to work just as easily, so that E, 4 or A aren't harder to play | Given a glyph with several strokes (e.g. E, F, H, 4, A), then all strokes show as guide at once; I can paint them in any order and either direction, and the marker always points to the start of the next unfinished stroke and hops there when a stroke completes. Given I lift my finger between strokes, then nothing is lost and no "stroke order" error exists | ☐ |
+| 33 | As a toddler, I want to see my painting fill the path and know when a line or shape is finished, so that I feel progress | Given I paint, then the guide visibly turns to colour as covered. Given a stroke is at least **85% covered** (measured along its length), then the remaining gap fills itself with a short sparkle and a gentle chime, and the marker moves on. Given every stroke is done, then the glyph is complete and its colour is full and bright. The child never has to reach exact ends or corners | ☐ |
+| 34 | As a toddler, I want my finger not to hide what I'm tracing, so that I can see where to go next | Given the path is 56dp wide or more (a fingertip is about 40dp), when I drag, then guide pixels remain visible around my finger; the paint has a bright soft glow so progress shows past the edge of the finger; and the marker sits at the next unpainted spot ahead of my paint, so it is not under the fingertip. The glyph never sits under the home icon or play-on button | ☐ |
+| 35 | As a toddler, I want a happy celebration when I finish, and to move on when I'm ready, so that it feels good and I'm in control | Given a glyph completes, then it plays the same style of short celebration and happy sound as Paw Match's and the other games' (glyph bounces and shimmers, animal does a happy hop, ~2s), and one large play-on icon button appears (not auto-advance). Given I tap it, then the next glyph appears. Why a button: a toddler is often still touching or admiring the finished shape, and an automatic switch would yank it away and start painting under a resting finger. Given I mash the button, then it advances exactly one glyph, because it only exists after a real completion | ☐ |
+| 36 | As a toddler, I want the shapes to get a little harder as I keep playing, so that it stays interesting without me choosing anything | Given I complete glyphs, then content follows the ramp below with no level number, lock, banner, or text; stage changes are invisible. Given I leave to the home screen and re-enter, then I start again at the first glyph (nothing saved) | ☐ |
+| 37 | As a toddler with imprecise fingers, I want it to work however I hold the phone, so that clumsy touches don't break it | Given a typical 360dp-wide portrait phone, then paint counts anywhere within 32dp of the path centreline (a 64dp-wide forgiving corridor, above the 48dp floor), and neighbouring strokes never overlap except where the glyph joins them. Given several fingers or a resting palm, then every touch paints only where it lies on the path and any other touch does nothing (no crash, no error, no stuck state). Given one-handed play in portrait, then the glyph, play-on button and painting area are reachable by a thumb and nothing needs landscape or a second hand | ☐ |
+| 38 | As a parent, I want Paw Trace to obey every house rule, so that I never supervise | Given any Paw Trace screen, then there is no ad, purchase, currency, login, network call, or external link; no score, stars, timer, or accuracy readout; no lose or failure state; and no text a child must read — tracing a letter or digit is an activity, and he is never asked to name or pick one. Given the code, then the game is a new package plus one `GameCatalog` line and changes no other game or hub code | ☐ |
+
+**Content ramp** (all glyphs are a single-colour outline guide; one glyph at a time; uppercase letters only):
+
+| Stage | Glyphs (in this order) | Count | Advances when |
+|---|---|---|---|
+| 1 Lines and curves | horizontal line, vertical line, slanted line, arch (rainbow curve), wave | 5 | each completed once |
+| 2 Shapes | circle, square, triangle, cross (+), heart | 5 | each completed once |
+| 3 Numbers | 1, 2, 3, 4, 5, 6, 7, 8, 9, 0 (counting order; 0 last) | 10 | each completed once |
+| 4 Letters | I L T H E F, then A V W M N Z K X Y, then O C U J D P B R G S Q (straight strokes first, curvy last) | 26 | after all 26, play on forever in a random mix of all 46, never the same glyph twice in a row |
+
+- **Mixing:** from stage 2 on, every third glyph is a random earlier-stage glyph (never the one just played) as an easy win; only the "new" glyphs count toward advancing.
+- **Why uppercase only:** capitals are made of simpler strokes and are what children meet first; lowercase and stroke-order rules are later.
+- **Roughly:** stage 1-2 take ~10 completions, so a child who plays about 20 glyphs reaches letters; a short session may stay in shapes or numbers.
+
+**Cut from Paw Trace v1 (v2 or later):** lowercase; spoken letter/number names; tracing his own name; free drawing; saved progress or picking a glyph; enforced stroke order; accuracy or "how well you traced" feedback; per-glyph colour/brush choices; optional idle sounds.
+
+### Milestone 5 — More to explore
 <!-- Sketch only. -->
 - A fourth game and beyond.
 - Possibly a per-game card-set/theme picker (animals, shapes, vehicles) using pictures, not text, inside Paw Match specifically.
