@@ -7,7 +7,22 @@ All user-visible changes, in plain language, newest first. Maintained by the tec
 
 ## Unreleased
 
-Not in a build yet. These changes are on the Paw Pour, Paw Kitchen, Paw Trace, Paw Blocks and Paw Pop branches, waiting for review and a test on a real phone.
+Not in a release build yet. These changes are waiting for review and a test on a real phone.
+
+### Score, paws and a kind ending (Paw Blocks and Paw Pop)
+
+- **Paw Blocks now has a score.** Each block you place scores 3 points. Clearing lines scores more: 10 for one line, 30 for two, 60 for three, 100 for four or more. Clear-outs, new blocks and a wrong drop score nothing and take nothing away.
+- **Paw Blocks now has three paws.** They sit at the top next to the score. When the board fills up and no block fits, the game clears some rows for you and one paw fades. It always waits a moment after your last move, and never while you are holding a block.
+- **Paw Blocks now ends kindly.** With no paws left, a "good game" screen fades in: a smiling animal, your score, your best score, a play-again button and a home button. There is no red, no sad face and no sound. The two buttons ignore touches for the first moment so a mashing finger cannot skip it.
+- **Paw Pop bubbles now zig-zag.** They come in from behind a soft cloud bank at the top and turn sharply left and right as they fall, so you can learn to aim ahead. Bubbles get smaller and move at different speeds as the game goes on, and a bubble cannot be popped until it has fully come out from behind the clouds.
+- **Paw Pop now has a score.** A pop scores 1 point, and a gift bubble scores 3.
+- **Paw Pop now has three paws.** A bubble that reaches the bottom and fades costs one paw. After that the rocket glows for 3 seconds, and nothing else costs a paw in that time. Gift bubbles that get past are free, and gifts never give or take a paw. When the last paw goes, the bubbles fade away and the same kind "good game" screen appears.
+- **Your best score is saved.** Paw Blocks and Paw Pop each remember your best score. If you beat it, the good-game screen glows and the animal hops. It is saved the moment you beat it, so leaving early does not lose it.
+- **Privacy: nothing leaves the phone.** The best score is the only thing the app saves. It is kept on the phone only. It is not backed up to your Google account, not copied to a new phone, and not sent anywhere. The app has no internet permission. To reset it, clear the app's storage in Android settings.
+- The app no longer jumps back to the home screen when the phone switches to dark mode or you change the font size or display size. Your game carries on.
+- Paw Blocks: a quick tap on a block in the tray no longer drops it on the board. Only a real drag places it.
+
+### Earlier changes
 
 - There is a new game on the home screen: **Paw Pour**. Tap a tube of coloured liquid to lift it, then tap another tube to pour. Sort the colours until each one fills its own tube.
 - Every Paw Pour round can be finished. The game checks before it deals.
@@ -32,13 +47,13 @@ Not in a build yet. These changes are on the Paw Pour, Paw Kitchen, Paw Trace, P
 - A wrong drop is gentle: the block glides back to the tray. There is no sound, no red and no lost turn. Only the first finger on the screen moves a block, so other fingers do nothing.
 - The board starts empty at 5 by 5 and grows a little as your child clears lines, up to 9 by 9, and new block shapes arrive one at a time: dots and short bars first, then longer bars, squares, corners, rectangles and the long bar of 5. Nobody picks a level.
 - Every block has its own colour and its own small picture on each square (a star, heart, drop, fish, leaf, bone, paw or moon), so children who can't tell colours apart can still play.
-- Three new blocks slide in together after all three are used. At least one always has a place to go. If the board still fills up so that none of the blocks left can be placed, it quietly sparkles the fullest rows clear after a moment. There is no message, no score, no counter and no "game over".
+- Three new blocks slide in together after all three are used. At least one always has a place to go. If the board still fills up so that none of the blocks left can be placed, it quietly sparkles the fullest rows clear after a moment. (Later on this branch this costs a paw, and Paw Blocks gained a score and a kind ending. See above.)
 - Paw Blocks has no sound yet, like the other games. Leaving for the home screen starts it again on an empty board.
 - Paw Blocks: if a swipe from the screen edge, a notification pull-down or an app switch interrupts a drag, the block now goes back to the tray instead of landing on the board.
 - Paw Blocks: the board is a little wider (nearly edge to edge), so the 9 by 9 board has bigger squares, and the three tray slots are moved in from the screen edges so the phone's back gesture does not clash with them. A block dropped into a row that is still sparkling away is no longer hidden under the old squares.
 - There is a sixth new game on the home screen: **Paw Pop**. A friendly rocket sits at the bottom of a pale blue sky and shoots a star every 0.4 seconds all by itself. Touch anywhere and the rocket slides to that side; only how far left or right your finger is matters. If you lift your finger, the rocket stays put and keeps shooting.
-- Big, slow bubbles and balloons drift down. A star pops one with a ring and a few sparkles, and a bubble with an animal inside gives a little happy hop. A bubble that gets past just fades away behind the rocket. There is no score, no lives, no timer and no game over. The only way out is the home button.
-- About one in eight bubbles has a gift inside. Pop it and the gift glides to the rocket by itself, so it can't be missed. There are five: three stars at once, one giant star that flies through everything, a rainbow ribbon that pops what it touches while the rocket slides, slower balloons, and a sparkling wave that pops the balloons one after another whenever there is at least one on screen. They fade away after a few seconds, with the rocket's glow breathing gently at the end. Nothing is counted or kept.
-- The game grows slowly the more you pop (a child who plays busily gets to the busiest sky in about 3 minutes, one who only watches in about 7), with no levels to pick: round bubbles first, then oval balloons, hearts, moons, animal bubbles and a few smaller ones, with a few more on screen at once (never more than eight).
+- Big, slow bubbles and balloons drift down. A star pops one with a ring and a few sparkles, and a bubble with an animal inside gives a little happy hop. There is no timer. (Later on this branch Paw Pop gained a score, three paws and a kind ending. See above.)
+- About one in eight bubbles has a gift inside. Pop it and the gift glides to the rocket by itself, so it can't be missed. There are five: three stars at once, one giant star that flies through everything, a rainbow ribbon that pops what it touches while the rocket slides, slower balloons, and a sparkling wave that pops the balloons one after another whenever there is at least one on screen. They fade away after a few seconds, with the rocket's glow breathing gently at the end. Gifts never give or take a paw.
+- The game grows slowly the more you pop (a child who plays well gets to the busiest sky in about 7 minutes; one who only watches reaches the good-game screen after about 40 seconds), with no levels to pick: round bubbles first, then oval balloons, hearts, moons, animal bubbles and a few smaller ones, with a few more on screen at once (never more than eight).
 - Only the newest finger steers, so a resting palm can't take over. If the finger that was steering lifts while another finger is still dragging, the rocket follows the one that is still dragging. Nothing flashes faster than three times a second.
 - Paw Pop has no sound yet, like the other games. Leaving for the home screen starts it again from the first bubbles.
