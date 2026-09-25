@@ -31,9 +31,15 @@ The home screen shows one picture tile per game. Tap a tile to play.
   - Three new blocks arrive together, and at least one always has a place to go. If the board ever fills so that none of them fits, it quietly sparkles a few rows clear after a moment. There is no score, no counter and no "game over".
   - It has no sound yet.
 
-All five games start over from the beginning when you leave to the home screen. Nothing is saved.
+- **Paw Pop** — a gentle little shooter with nothing to fear. A friendly rocket at the bottom of the sky slides to wherever your child's finger is and shoots stars by itself, one every 0.4 seconds. Big, slow bubbles and balloons drift down; a star pops one with a sparkle. A bubble that gets past just fades away behind the rocket. There is no score, no lives and no end: it plays until your child taps home.
+  - Rounds start with four big round bubbles and grow very slowly: oval balloons, hearts, moons, animals in bubbles, and a few smaller ones. Nobody picks a level.
+  - About one target in eight carries a gift you can see inside. Pop it and the gift glides to the rocket by itself: three stars at once, one giant star, a rainbow ribbon, slower balloons, or a sparkling wave that pops a few at a time. Each one fades away after a few seconds with the rocket's glow breathing gently. Nothing is kept or counted.
+  - The newest finger steers, so a resting palm cannot take over. If the finger lifts, the rocket stays where it is and keeps shooting.
+  - It has no sound yet.
 
-More games are planned. See `docs/PRD.md`. Paw Pour, Paw Kitchen, Paw Trace and Paw Blocks are built and waiting for review and a test on a real phone.
+All six games start over from the beginning when you leave to the home screen. Nothing is saved.
+
+More games are planned. See `docs/PRD.md`. Paw Pour, Paw Kitchen, Paw Trace, Paw Blocks and Paw Pop are built and waiting for review and a test on a real phone.
 
 ## Build it on your computer
 

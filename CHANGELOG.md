@@ -7,7 +7,7 @@ All user-visible changes, in plain language, newest first. Maintained by the tec
 
 ## Unreleased
 
-Not in a build yet. These changes are on the Paw Pour, Paw Kitchen, Paw Trace and Paw Blocks branches, waiting for review and a test on a real phone.
+Not in a build yet. These changes are on the Paw Pour, Paw Kitchen, Paw Trace, Paw Blocks and Paw Pop branches, waiting for review and a test on a real phone.
 
 - There is a new game on the home screen: **Paw Pour**. Tap a tube of coloured liquid to lift it, then tap another tube to pour. Sort the colours until each one fills its own tube.
 - Every Paw Pour round can be finished. The game checks before it deals.
@@ -36,4 +36,9 @@ Not in a build yet. These changes are on the Paw Pour, Paw Kitchen, Paw Trace an
 - Paw Blocks has no sound yet, like the other games. Leaving for the home screen starts it again on an empty board.
 - Paw Blocks: if a swipe from the screen edge, a notification pull-down or an app switch interrupts a drag, the block now goes back to the tray instead of landing on the board.
 - Paw Blocks: the board is a little wider (nearly edge to edge), so the 9 by 9 board has bigger squares, and the three tray slots are moved in from the screen edges so the phone's back gesture does not clash with them. A block dropped into a row that is still sparkling away is no longer hidden under the old squares.
-
+- There is a sixth new game on the home screen: **Paw Pop**. A friendly rocket sits at the bottom of a pale blue sky and shoots a star every 0.4 seconds all by itself. Touch anywhere and the rocket slides to that side; only how far left or right your finger is matters. If you lift your finger, the rocket stays put and keeps shooting.
+- Big, slow bubbles and balloons drift down. A star pops one with a ring and a few sparkles, and a bubble with an animal inside gives a little happy hop. A bubble that gets past just fades away behind the rocket. There is no score, no lives, no timer and no game over. The only way out is the home button.
+- About one in eight bubbles has a gift inside. Pop it and the gift glides to the rocket by itself, so it can't be missed. There are five: three stars at once, one giant star that flies through everything, a rainbow ribbon that pops what it touches while the rocket slides, slower balloons, and a sparkling wave that pops a few balloons one after another. They fade away after a few seconds, with the rocket's glow breathing gently at the end. Nothing is counted or kept.
+- The game grows very slowly the more you pop, with no levels to pick: round bubbles first, then oval balloons, hearts, moons, animal bubbles and a few smaller ones, with a few more on screen at once (never more than eight).
+- Only the newest finger steers, so a resting palm or a second finger can't take over. Nothing flashes faster than three times a second.
+- Paw Pop has no sound yet, like the other games. Leaving for the home screen starts it again from the first bubbles.
