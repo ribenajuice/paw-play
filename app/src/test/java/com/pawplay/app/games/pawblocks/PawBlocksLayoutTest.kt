@@ -17,9 +17,9 @@ class PawBlocksLayoutTest {
     @Test
     fun `panel grid and tray follow the design numbers on the reference screen`() {
         val l = blocksLayout(360f, 692f)
-        near(6f, l.panelLeft); near(96f, l.panelTop); near(348f, l.panelSize)
-        near(10f, l.gridLeft); near(100f, l.gridTop); near(340f, l.gridSize)
-        near(96f, l.slotWidth); near(112f, l.slotHeight); near(508f, l.slotTop)
+        near(6f, l.panelLeft); near(132f, l.panelTop); near(348f, l.panelSize)
+        near(10f, l.gridLeft); near(136f, l.gridTop); near(340f, l.gridSize)
+        near(96f, l.slotWidth); near(112f, l.slotHeight); near(520f, l.slotTop)
         near(24f, l.slotLeftOf(0)); near(132f, l.slotLeftOf(1)); near(240f, l.slotLeftOf(2))
         for (n in 5..9) near(340f / n, l.cellSize(n.toFloat()))
     }
@@ -31,10 +31,32 @@ class PawBlocksLayoutTest {
     }
 
     @Test
-    fun `on the reference screen the tray never touches the board and stage 6 ends at 620`() {
+    fun `on the reference screen the tray sits 40dp under the board and ends at 632`() {
         val l = blocksLayout(360f, 692f)
-        assertEquals(620f, l.slotTop + l.slotHeight, 0.01f)
-        assertTrue(l.slotTop >= l.panelBottom + 24f)
+        assertEquals(632f, l.slotTop + l.slotHeight, 0.01f)
+        assertEquals(40f, l.slotTop - l.panelBottom, 0.01f)
+    }
+
+    @Test
+    fun `the top strip is above the board, in the design's order, and the animal's peek lane is clear of it`() {
+        val l = blocksLayout(360f, 692f)
+        // Paws 32dp, 8dp apart, from x 92, top 32: x = 92, 132, 172.
+        assertEquals(listOf(92f, 132f, 172f), (0..2).map { BlocksLayout.pawLeft(it) })
+        assertEquals(32f, BlocksLayout.PAW_SIZE, 0f)
+        // Home, then paws, then the score: no overlap, and everything ends above the board.
+        val homeRight = BlocksLayout.HOME_INSET + BlocksLayout.HOME_SIZE
+        assertTrue(BlocksLayout.pawLeft(0) >= homeRight + 8f)
+        val pawsRight = BlocksLayout.pawLeft(2) + BlocksLayout.PAW_SIZE
+        assertEquals(204f, pawsRight, 0.01f)
+        val scoreRight = 360f - BlocksLayout.SCORE_MARGIN_RIGHT
+        assertEquals(340f, scoreRight, 0f)
+        assertTrue("six digits fit between the paws and the right margin", scoreRight - pawsRight >= 128f - 0.01f - 8f)
+        assertEquals(BlocksLayout.HOME_INSET + BlocksLayout.HOME_SIZE, BlocksLayout.STRIP_BOTTOM, 0f)
+        assertTrue(l.panelTop >= BlocksLayout.STRIP_BOTTOM + 8f)
+        // The fox's ears (62dp above the panel) reach y 70 on the reference screen: clear of the score digits, which end at y 62.
+        assertEquals(70f, l.panelTop - 62f, 0.01f)
+        // The top margin never goes up into the strip, however short the window.
+        for (h in listOf(400, 480, 520, 568, 640, 692)) assertTrue("h=$h", blocksLayout(360f, h.toFloat()).panelTop >= 96f - 0.01f)
     }
 
     @Test
@@ -48,7 +70,7 @@ class PawBlocksLayoutTest {
         assertTrue(blocksLayout(320f, 640f).cellSize(9f) >= 33.2f)
         // The board is the last thing to shrink when the window is short.
         val short = blocksLayout(360f, 520f)
-        assertTrue("short window cell ${short.cellSize(9f)}", short.cellSize(9f) >= 36f)
+        assertTrue("short window cell ${short.cellSize(9f)}", short.cellSize(9f) >= 35f)
         assertEquals(72f, short.slotHeight, 0.01f)
     }
 
@@ -75,8 +97,9 @@ class PawBlocksLayoutTest {
             // The outer tray slots stay off the back-gesture strip at the screen sides on phones 360 wide or more.
             if (w >= 360) assertTrue("$tag tray inset ${l.slotLeftOf(0)}", l.slotLeftOf(0) >= 24f - 0.01f && w - (l.slotLeftOf(2) + l.slotWidth) >= 24f - 0.01f)
             if (w >= 320) assertTrue("$tag tray inset ${l.slotLeftOf(0)}", l.slotLeftOf(0) >= 24f - 0.01f)
-            // Tray blocks are still a picture: 18dp or more on every real phone.
-            if (h >= 568) for (stage in 1..6) assertTrue("$tag tray cell stage $stage = ${l.trayCell(stage)}", l.trayCell(stage) >= 14f)
+            // Tray blocks are still a picture: 12dp or more on every real phone (was 14 before the strip pushed the board down;
+            // stage 6 on a 320 x 568 phone is 13dp, and the colour and silhouette carry it).
+            if (h >= 568) for (stage in 1..6) assertTrue("$tag tray cell stage $stage = ${l.trayCell(stage)}", l.trayCell(stage) >= 12f)
             // Every tray block of every stage fits in its slot.
             for (stage in 1..6) for (s in BlocksRamp.shapesFor(stage)) {
                 assertTrue("$tag ${s.id}", s.width * l.trayCell(stage) <= l.slotWidth && s.height * l.trayCell(stage) <= l.slotHeight)

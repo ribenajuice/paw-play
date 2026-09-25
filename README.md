@@ -2,7 +2,7 @@
 
 A calm little shelf of games for a 2 to 5 year old. Hand over the phone and walk away.
 
-There are no ads, no purchases, no logins and no links out of the app. There are no timers, scores or "you lost" screens either. Your child can play with no reading at all.
+There are no ads, no purchases, no logins and no links out of the app. There are no timers and no "you lost" screens. Two games (Paw Blocks and Paw Pop) show a score and three paws, and end with a kind "good game" screen. Your child can play with no reading at all.
 
 ## The games
 
@@ -28,18 +28,28 @@ The home screen shows one picture tile per game. Tap a tile to play.
 - **Paw Blocks** — a block-fitting puzzle with nothing falling and no clock. Three blocks wait in a tray. Drag one onto the board and a soft blue outline shows where it will land; let go and it snaps in. Fill a whole row or column and it sparkles away while a little animal peeks over the corner of the board. A wrong drop just glides back to the tray.
   - The board starts empty at 5 by 5 and grows a little as your child clears lines, up to 9 by 9, while new block shapes join in one at a time. Nobody picks a level.
   - Every block has its own colour and its own small picture, so children who can't tell colours apart can still play.
-  - Three new blocks arrive together, and at least one always has a place to go. If the board ever fills so that none of them fits, it quietly sparkles a few rows clear after a moment. There is no score, no counter and no "game over".
+  - Three new blocks arrive together, and at least one always has a place to go.
+  - **Score and paws.** Each block you place scores 3 points, and clearing lines scores more. The score sits at the top, opposite the home button, next to three paw pictures.
+  - If the board fills so that none of the blocks fits, it quietly sparkles a few rows clear after a moment. Each time that happens, one paw fades. With no paws left, the game ends with a "good game" screen instead: a smiling animal, your score, your best score, a play-again button and a home button. There is no red, no sad face and no sound.
+  - A quick tap on a block does not drop it on the board. Only a real drag places it.
   - It has no sound yet.
 
-- **Paw Pop** — a gentle little shooter with nothing to fear. A friendly rocket at the bottom of the sky slides to wherever your child's finger is and shoots stars by itself, one every 0.4 seconds. Big, slow bubbles and balloons drift down; a star pops one with a sparkle. A bubble that gets past just fades away behind the rocket. There is no score, no lives and no end: it plays until your child taps home.
-  - Rounds start with four big round bubbles and grow very slowly: oval balloons, hearts, moons, animals in bubbles, and a few smaller ones. Nobody picks a level.
-  - About one target in eight carries a gift you can see inside. Pop it and the gift glides to the rocket by itself: three stars at once, one giant star, a rainbow ribbon, slower balloons, or a sparkling wave that pops the balloons one after another. Each one fades away after a few seconds with the rocket's glow breathing gently. Nothing is kept or counted.
+- **Paw Pop** — a gentle little shooter with nothing to fear. A friendly rocket at the bottom of the sky slides to wherever your child's finger is and shoots stars by itself, one every 0.4 seconds. Big, slow bubbles and balloons drift down; a star pops one with a sparkle. Bubbles come in from behind a soft cloud bank at the top and zig-zag down in straight steps. Popping one scores 1 point (a gift bubble scores 3).
+  - **Score and paws.** A plain bubble that reaches the bottom and fades costs one paw, out of three. After a lost paw, the rocket glows for 3 seconds and misses in that time cost nothing. A gift bubble that gets past is free. When the last paw is gone, the sky fades and the "good game" screen appears, the same one as in Paw Blocks.
+  - Rounds start with big round bubbles and grow very slowly: oval balloons, hearts, moons, animals in bubbles, and smaller ones, and a mix of slow and quicker ones. Bubbles zig-zag more sharply as the game goes on. Nobody picks a level.
+  - About one target in eight carries a gift you can see inside. Pop it and the gift glides to the rocket by itself: three stars at once, one giant star, a rainbow ribbon, slower balloons, or a sparkling wave that pops the balloons one after another. Each one fades away after a few seconds with the rocket's glow breathing gently. Gifts never give or take a paw.
   - The newest finger steers, so a resting palm cannot take over. If the finger lifts, the rocket stays where it is and keeps shooting; another finger still dragging takes over once it moves a little.
   - It has no sound yet.
 
-All six games start over from the beginning when you leave to the home screen. Nothing is saved.
+All six games start over from the beginning when you leave to the home screen.
 
-More games are planned. See `docs/PRD.md`. Paw Pour, Paw Kitchen, Paw Trace, Paw Blocks and Paw Pop are built and waiting for review and a test on a real phone.
+### What the app remembers
+
+Paw Blocks and Paw Pop each save one number: your best score. That is all the app ever saves. It stays on the phone. It is not backed up, not moved to a new phone, and never sent anywhere (the app has no internet permission). A new phone or a reinstall starts both bests at 0. Paw Match, Paw Pour, Paw Kitchen and Paw Trace save nothing.
+
+To reset the best scores, open Android Settings, then Apps, then Paw Play, then Storage, and choose Clear storage. (Menu names vary a little by phone.) There is no reset button in the app, so a child cannot press one.
+
+More games are planned. See `docs/PRD.md`. Paw Pour, Paw Kitchen, Paw Trace, Paw Blocks and Paw Pop are built but have not been played on a real phone yet.
 
 ## Build it on your computer
 

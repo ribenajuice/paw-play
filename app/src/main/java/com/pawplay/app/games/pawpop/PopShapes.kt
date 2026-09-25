@@ -14,14 +14,19 @@ enum class TargetKind(
     val rx: Float, val ry: Float, val dx: Float, val dy: Float,
     /** Half the body's height (fractions of S), for placement. */
     val halfHeight: Float,
-    /** How far above the centre the drawing reaches, so a new target starts just off the top edge. */
+    /**
+     * How far above the centre the whole picture reaches (fractions of S): a target has entered, and can be popped, only
+     * when this line is below the entry line. The critter's is its bunny ears, the tallest of its four animals.
+     */
     val top: Float,
+    /** How far below the centre the whole picture reaches, string included: a new target starts with this above the entry line. */
+    val bottom: Float,
 ) {
-    ROUND(0.50f, 0.50f, 0f, 0f, 0.50f, 0.50f),
-    OVAL(0.50f, 0.62f, 0f, 0f, 0.62f, 0.62f),
-    HEART(0.46f, 0.45f, 0f, -0.02f, 0.47f, 0.50f),
-    MOON(0.38f, 0.50f, -0.12f, 0f, 0.50f, 0.50f),
-    CRITTER(0.50f, 0.50f, 0f, 0f, 0.50f, 0.66f);
+    ROUND(0.50f, 0.50f, 0f, 0f, 0.50f, 0.50f, 0.50f),
+    OVAL(0.50f, 0.62f, 0f, 0f, 0.62f, 0.62f, 1.12f),
+    HEART(0.46f, 0.45f, 0f, -0.02f, 0.47f, 0.50f, 0.94f),
+    MOON(0.38f, 0.50f, -0.12f, 0f, 0.50f, 0.50f, 1.00f),
+    CRITTER(0.50f, 0.50f, 0f, 0f, 0.50f, 0.87f, 0.50f);
 
     /** A circle that surely holds the whole hit shape, in fractions of S: used to keep new targets clear of each other. */
     val reach: Float get() = if (rx > ry) rx else ry

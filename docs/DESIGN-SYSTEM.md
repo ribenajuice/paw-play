@@ -39,6 +39,11 @@ Font: a single rounded, friendly, highly legible typeface. Numerals must be unam
 |---|---|---|
 | Game tile | Home screen | Large icon-only tile, one per `GameCatalog` entry. Icon must read as "what game is this" with zero text — the toddler picks by picture. |
 | Exit icon | Inside every game | The only way out of a game besides system back. Same icon, same corner, every game — consistency matters more than per-game flourish here. |
+| Score number | Top strip of Paw Blocks and Paw Pop only | Plain number, top right, 32sp. See "Score, paws and the good-game screen". |
+| Paws (three rescues / lives) | Same strip, right of the exit icon | Solid paw = left, hollow dotted paw = used. Same drawing in both games. |
+| Good-game screen | End of Paw Blocks and Paw Pop | Kind ending: animal, score, best score with rosette, play-again and home buttons. |
+| Rosette | Best-score cue on the good-game screen | Scalloped prize ribbon, deliberately not a coin or star. |
+| Entry line (Pop) | Below Pop's top strip | Cloud bank the targets come out from; nothing pops until fully out. |
 
 ## Home screen
 - One shelf, one grid of Game tiles — as many as `GameCatalog` currently has (see `docs/ARCHITECTURE.md`). No "coming soon" tiles ever ship; the grid just grows as games are added.
@@ -221,7 +226,7 @@ Chrome is unchanged (cream background, white surfaces, ink, 56dp home button, 29
 ### Board
 | Element | Spec |
 |---|---|
-| Panel | **348 x 348dp** on a 360dp phone (width minus 12, so 6dp from each side, never wider than 348 on any phone), left 6dp, top 96dp, white, radius 20, 3dp edge `#EADFCF`. Inner grid 340 x 340dp at (10, 100), which is 4dp padding. No scrolling ever. (Changed after QA: the first design had a 328dp panel and 35.6dp cells at 9x9; the board is never touched, so it may go close to the sides, and 9x9 cells are now 37.8dp at 360 wide and 33.3dp at 320 wide, about the most nine cells can have on 320dp.) |
+| Panel | **348 x 348dp** on a 360dp phone (width minus 12, so 6dp from each side, never wider than 348 on any phone), left 6dp, top **132dp** (was 96; moved down 36 on 2026-09-25 to make room for the score and paws strip and the fox's peek lane, see "Score, paws and the good-game screen"), white, radius 20, 3dp edge `#EADFCF`. Inner grid 340 x 340dp at (10, 136), which is 4dp padding. No scrolling ever. (Changed after QA: the first design had a 328dp panel and 35.6dp cells at 9x9; the board is never touched, so it may go close to the sides, and 9x9 cells are now 37.8dp at 360 wide and 33.3dp at 320 wide, about the most nine cells can have on 320dp.) |
 | Cell size | **grid / N dp** (340 / N on the reference screen) |
 | Empty cell | fill `#F4ECDF`, outline `#D9CCB8` (max(1.25dp, 2.5% of cell)), no mark. Inset 3% of the cell on every side, corner radius 22% of the cell |
 | Filled cell | same geometry, fill = family colour, rim ink `#2B2320` at 28% (max(1dp, 2.5%)), one mark on top (below) |
@@ -238,9 +243,9 @@ Chrome is unchanged (cream background, white surfaces, ink, 56dp home button, 29
 Board cells are never touch targets. **Empty-cell vs Sunshine block is the weakest fill contrast at 1.23** (luminance ratio), which is why filled cells carry the ink rim and the mark and empty cells carry an outline and no mark; do not drop either.
 
 ### Tray
-- Three slots, **96 x 112dp**, left edges at x = 24, 132, 240 (12dp gaps, **24dp from each screen side**, which keeps the outer slots off the system back-gesture strip on gesture-navigation phones; a 320dp phone gets 82.7dp slots, still over 72), top at y = 508. The whole slot is the grab area. Slot resting = white, 3dp sunshine border, radius 20 (same as Paw Kitchen's tray tile). Slot with its block lifted = transparent, dashed `#DCCFC0` border (8 on, 7 off), block shown at 18% until it lands or glides home. Empty slot (block placed) = the same dashed outline, nothing inside.
+- Three slots, **96 x 112dp**, left edges at x = 24, 132, 240 (12dp gaps, **24dp from each screen side**, which keeps the outer slots off the system back-gesture strip on gesture-navigation phones; a 320dp phone gets 82.7dp slots, still over 72), top at y = **520** (was 508; 40dp below the board panel). The whole slot is the grab area. Slot resting = white, 3dp sunshine border, radius 20 (same as Paw Kitchen's tray tile). Slot with its block lifted = transparent, dashed `#DCCFC0` border (8 on, 7 off), block shown at 18% until it lands or glides home. Empty slot (block placed) = the same dashed outline, nothing inside.
 - **Tray cell = min(board cell, floor((slot width - 8) / widest side in cells of any block in the stage's set), and the same by height)**: 44 at stage 1 (widest 2), 29 at stages 2-3 (3), 22 at stages 4-5 (4), 17 at stage 6 (5). The block is centred in its slot. On pick-up it grows to the full board cell over 120ms.
-- The home button (56dp, top-left at (20, 20)), the board and the tray never overlap; on stage 6 the bottom of the tray is at y = 620. On short windows the tray's bottom margin (72 down to 12), then the slot height (112 down to 72), then the gap above the tray (24 down to 12), then the top margin (96 down to 84) give way before the board shrinks.
+- The home button (56dp, top-left at (20, 20)), the board and the tray never overlap; the bottom of the tray is at y = 632 (was 620; 60dp bottom margin on 692). On short windows the tray's bottom margin (60 down to 12), then the slot height (112 down to 72), then the gap above the tray (40 down to 12), then the board's top margin (132 down to 96, never into the score strip, which ends at y 76) give way before the board shrinks. The score and paws strip (y 20 to 76) is drawn above the board and never scrolls or shrinks.
 
 ### Block encoding (for the developer)
 Cells are `[col, row]` offsets from the block's top-left, x to the right, y down. A block has an id, a family, and its cells. Width = max col + 1, height = max row + 1. Blocks never rotate; every orientation is its own entry.
@@ -290,6 +295,7 @@ Every one of the 28 pairs is at least 1.33 (the closest are neighbours, so all o
 - **Ghost.** Shown only when a legal spot is within reach; cells filled `#4FC1E9` at 30%, outline `#1A8FCB` 3dp (measures 3.1 against an empty cell). On 7x7 and larger: fill 42%, outline 4.5dp, plus a 10dp `#4FC1E9` at 50% halo stroke under it. It jumps between spots with no animation, so what you see is what you get. No mark on the ghost.
 - **Snap reach.** Legal spot nearest to the drawn block's top-left, if within max(one board cell, 40dp); ties go to the spot nearer the fingertip.
 - **Drop, legal.** The block moves into its cells over 90ms, then a "plop": those cells scale 1 to 1.08 to 1 over 160ms (sine). Soft plop sound.
+- **Tap.** A finger that lifts having moved less than **12dp** from where it landed made a tap, not a drag: the block glides home (the tray is only 40dp under the board, so a block riding 64dp above a resting finger would otherwise snap onto the bottom row). Added 2026-09-26, see DECISIONS.
 - **Drop, illegal or interrupted.** Glides to its slot over 250ms (ease-out) shrinking to tray size. No sound, shake, red or count. The block can be grabbed again at once, mid-glide.
 
 ### Clear, clear-out and growth motion
@@ -304,7 +310,7 @@ Every one of the 28 pairs is at least 1.33 (the closest are neighbours, so all o
 ### States and safety
 - The home button (56dp white circle, ink home glyph, top-left 20dp from the edges) is drawn last and stays on top; it works mid-drag, and a drag that ends over it is an illegal drop.
 - Only the first finger that grabbed a block is followed; other touches are ignored until it lifts (the mockup implements this).
-- No screen contains text, a score, a counter, a timer, a "game over" or any lose state.
+- No screen contains text, a counter (other than the score), a timer, or the words "game over". **Amended 2026-09-25:** the score, three paws and the good-game screen exist (next section); the game has one lose state, always the kind screen.
 
 ### Decisions awaiting founder OK (mockup review)
 Pink badge; the eight colours with star, heart, drop, fish, leaf, bone, paw and moon; the peek-up fox behind the board (rotating through the six critters); the quieter, animal-free clear-out look; tray blocks drawn smaller than board cells (46 down to 18dp); the block riding 64dp above the fingertip measured from its bottom edge.
@@ -357,7 +363,7 @@ Draw order for oval, heart and moon: string, knot, body, shine (the body covers 
 - Frog: eye bumps r 15 at (+-24, -42) `#7FBF6B`, drawn first; after the paper disc, eye whites r 8 at (+-24, -44) and pupils r 4 at (+-24, -43). Head `#7FBF6B`, muzzle `#DFF2D6`, nostrils r 1.6 at (+-5, 9), no eyes on the head.
 - Face (fox, bear, bunny): eyes r 3.4 ink at (+-9, 2); nose triangle `0,10 -4,15 4,15` ink (bunny `#FF8FA8`); mouth `M-6,19 Q0,24 6,19` 1.8dp ink. Happy face (used in the pop): eyes `M-14,3 Q-9,-4 -4,3` and `M4,3 Q9,-4 14,3` 2.6dp ink, open mouth `M-7,18 Q0,28 7,18Z` `#B8301F`, cheeks r 4 at (+-17, 14) `#FF8FA8` 70%. Frog happy eyes: `M-31,-44 Q-24,-52 -17,-44` and `M17,-44 Q24,-52 31,-44`.
 
-**Sizes and placement.** Stage 1: 104-112 (round only); 2: 96-104; 3: 96-104; 4: 88-104; 5: 88-104 plus about one in five at 72. Sway is +-16dp, +-24dp at stage 5, one full sway per 3 s (`x = x0 + amp * sin(2 pi t / 3 + phase)`). A new target appears just above the top edge at least 12dp clear of every other (measured to the drawn edge; the mockup's stage-5 frame checks this live). Two swaying targets that briefly overlap simply pass over each other (older is behind); nothing reacts. The first target of a session appears already partly on screen.
+**Sizes and placement (revised 2026-09-25, stories 66 and 67).** Sizes are the PRD ramp's, never below 56dp (critters never below 64, carriers never below 72): stage 1 88-96 (round only), 2: 80-96, 3: 72-88, 4: 64-80, 5: 56-72 (about one in three is 56-64, the rest 65-72). There is no sway: a target moves in straight legs and turns sharply (see the PRD ramp table for the angle and run per stage), and appears **above the entry line**, with its whole picture (string included) at least 2dp above y 100, at least 12dp clear of every other (measured to the drawn edge; the mockup's stage-5 frame checks this live). Two targets that cross simply pass over each other (older is behind); nothing reacts. The first target of a session comes in from the top like every other (the old "already partly on screen" start is gone).
 
 **Hit.** A star counts as a hit when its centre is within 8dp of the drawn edge, tested against the hit ellipse in the table (centre = body centre + (dx, dy) * S; radii = fractions * S) grown by 8dp. Big-star hit: grown by 28dp instead. The ribbon hits any target whose ellipse overlaps its 56dp column above the ship.
 
@@ -387,7 +393,7 @@ Sparkle = four-point star `M0,-1 Q0.18,-0.18 1,0 Q0.18,0.18 0,1 Q-0.18,0.18 -1,0
 Target opacity = `clamp((H - y) / (0.1 * H), 0, 1)` with y = its centre and H the screen height: it is fully opaque until 0.1 H above the bottom and gone as its centre reaches the bottom edge. It is drawn **behind** the ship and stars; no bounce, wobble, sound, counter or colour change of anything else.
 
 ### Carriers and gifts
-- **Carrier shell:** round bubble or oval balloon only (S at least 96 so the gift is at least 48dp; the moon and critter have no room). Inside it, over the body centre: sunshine halo r 44 units at 10 to 24% and r 39 units at 18 to 38% (swelling once per 1.6 s: `0.5 + 0.5 sin(2 pi t / 1.6 + 1)`), a white disc r 34 units with a 2dp sunshine rim, and the gift picture at **0.5 S** across (bobs `2.5 sin(2 pi t / 1.6)` units up and down).
+- **Carrier shell:** round bubble or oval balloon only (S at least 72, founder-approved 2026-09-25, was 96; at 72 the white gift disc is still 49dp across; the moon and critter have no room). Inside it, over the body centre: sunshine halo r 44 units at 10 to 24% and r 39 units at 18 to 38% (swelling once per 1.6 s: `0.5 + 0.5 sin(2 pi t / 1.6 + 1)`), a white disc r 34 units with a 2dp sunshine rim, and the gift picture at **0.5 S** across (bobs `2.5 sin(2 pi t / 1.6)` units up and down).
 - **Gift pictures** (100 grid, centred; ink rim 40% at 2dp constant width where noted):
   - Triple star: three sunshine stars (outer radius, centre): 25 at (50, 30), 19 at (22, 66) tilted -14, 19 at (78, 66) tilted +14.
   - Big star: one sunshine star radius 44 at (50, 52), sparkles radius 9 at (86, 16) and 6 at (14, 86).
@@ -422,8 +428,80 @@ No new tokens were needed. Where the build chose a number the design left open: 
 
 **After review (2026-09-25):** the wave's arrival condition became "at least one ordinary target on screen" (from "3 or more", which left it popping nothing in about 9 of 10 arrivals). The sky is its own still layer with its gradient cached, and per-frame drawing reuses its strokes and layer bounds. The ribbon uses fewer than one point per 10dp on a very tall play area so it always reaches the top. Drawing phases (flame, carrier bob, ribbon sway, wave) are wrapped in double so a long session keeps its precision.
 
+**Built 2026-09-26 (score, paws, entry line).** No new theme tokens; numbers the build chose where the design left one open: the strip is home at (20, 20), paws from x 92 at y 32 (`PawLivesRow`, shared with Blocks) and the score right-aligned 20dp from the edge (`ScoreNumber`), all drawn over the cloud bank; the bank is `bankScallops(width)` half-ellipses, each `width / ceil(width / 24)` wide (15 on 360dp), 14dp deep, hanging from y 86 to the entry line at y 100, filled white 38% with a 3dp white 90% edge on the scalloped side, and is part of the still sky layer. A target that has not entered is clipped to the region below the scalloped edge (a path clip, used only while such a target exists), drawn at 50% with the dashed rim (9 on / 7 off in its own 100-unit grid) and turns solid over 150ms once it enters. A target enters when its whole picture is below the line, so the critter's height above centre is 0.87 S (its bunny ears), and the string of a balloon counts when a target is placed above the line (bottom reach 0.5 S round and critter, 1.12 oval, 0.94 heart, 1.0 moon). The ribbon stops at the entry line and the wave and ribbon are clipped to below it, like the stars, so nothing runs into the strip. The lost-paw peach glow is `graceGlow`: in over 0.3s, steady, out over the last 0.5s, drawn under the other glows; it is not drawn once the game is ending. The good-game screen uses a random one of Pop's four animals (fox, bear, bunny, frog), drawn as the pop's free critter at a size of 132dp, calm face normally and the happy face on a new best; the sky shows under a white 20% wash with the ship at 50% opacity and a steady flame. The paws row stays visible during the 0.5s ending and is hidden when the good-game screen appears. The optional star-exit twinkle at the line was not built.
+
 ### Decisions awaiting founder OK (mockup review)
 Teal badge; pale sky (not dark space); the six colours including deep Teal and Berry; the white-rocket-with-fox ship; critter ears/eyes poking out of the bubble to make its silhouette distinct; carriers limited to round bubbles and oval balloons (narrows the PRD's "any target"); the ribbon replacing the stars while it runs; slow drift shown as a lilac halo on every target; missed targets only fade (no bounce).
+
+## Score, paws and the good-game screen (Paw Blocks and Paw Pop)
+
+Added 2026-09-25 for PRD stories 63-73. Mockup: https://claude.ai/artifact/PMahD5NFUaXC9yr5m3qaif (private; its raw HTML has every path as working code: `paw`, `rosette`, `crown`, `fox`, `goodGame`, `bank`). Chrome is unchanged. No new theme tokens: everything below is content colour or existing chrome. Sizes are dp on the 360 x 692 play area of a 360 x 800 phone; type is the existing rounded face with **tabular (equal-width) figures**, weight 800.
+
+### Top strip (both games)
+| Element | Spec |
+|---|---|
+| Home button | Unchanged: 56dp, top-left at (20, 20) |
+| Paws | 3 paws, **32dp** each, 8dp gaps, at x = 92, 132, 172, top y = 32 (vertical centre 48). Not tappable |
+| Score | Right-aligned to x = 340 (20dp margin), baseline y = 61, **32sp**, weight 800, ink `#2B2320`, plain digits (no commas, no label, no icon). Six digits (999,999, the cap) still fit between x 212 and 340; if the font is wider, shrink to 26sp rather than move the paws |
+| Order | Left to right: home, paws, score. The score is never under the home button, the fox's peek lane, or a dragged block |
+
+Contrast (WCAG luminance ratio, measured): ink on cream 14.2, ink on the top of Pop's sky 10.4, ink on the cloud bank about 11. Score count-up runs under 0.4s with no flash, bounce, sound or colour change.
+
+**Blocks vertical layout (changed):** the fox peeks up from behind the board's top-right edge and its ears used to reach y 34, which is exactly where the score sits. The board panel therefore starts at **y 132** (was 96) and the tray at **y 520** (was 508): the fox now reaches y 70, clear of the strip (which ends at y 76 for the home button, and at y 62 for the score digits). The fox's own coordinates relative to the board are unchanged.
+
+### Paw (the rescue / life picture, same in both games)
+- Drawn on Paw Match's `PawPrintIcon` 80-unit grid (ellipses: pad `(40,52,20,16)`, toes `(18,30,8,10)`, `(34,18,8,10)`, `(52,18,8,10)`, `(64,32,8,10)` as cx, cy, rx, ry), at 32dp.
+- **Full paw:** fill coral `#FF6B4A`, ink `#2B2320` 4.5-unit outline (about 1.8dp) with round joins, plus a white 70% shine ellipse `(33,46)` rx 8 ry 3.6 rotated -25 degrees.
+- **Used paw:** the same silhouette, **no shine, fill white at 40%, ink at 55% outline, 5.5 units wide, dashed 8 on / 7 off, round caps**. Hollow and dotted, so it differs from a full paw in shape and pattern, not only in colour.
+- **Fade (0.6s):** the full layer's opacity goes 1 to 0 while the used layer goes 0 to 1 (linear-ish, ease). Paws are lost from the **right**: the rightmost full paw fades first. A used paw never returns. Nothing else on screen reacts.
+- Not tappable, no content description needed beyond "paws left" for screen readers.
+- Greyscale and red-green checks are in the mockup: coral solid vs white dotted differs by more than 3:1 in luminance and by fill vs hollow.
+
+### Blocks: the quiet clear-out with a paw
+Unchanged look (white wash 50%, rows scale to 0.72 and fade, pale sparkles, 900ms, story 45). Added: the **rightmost full paw fades to used over 0.6s**, starting at the same instant as the wash (t = 200ms of the 900ms). One paw per clear-out however many rows leave. No message, no animal, no sound beyond the existing whoosh. In the mockup the third paw fades while the two top rows leave (press Replay).
+
+### Pop: the top strip, the entry line and a lost paw
+- **Strip and entry line.** The strip is a **cloud bank**: fill white at 38%, 3dp white 90% edge, its bottom edge is 15 half-ellipse scallops 24dp wide and 14dp tall, hanging from y 86, so the lowest points are at **y 100 = the entry line**. Home, paws and score sit on it exactly as in Blocks. A flat variant (straight edge at y 100, white 38%, 3dp white line) is the alternative if the scallops are not wanted; behaviour is identical.
+- **Targets.** A new target starts fully above the line, behind the bank, and enters heading straight down. It is **clipped by the bank's lower edge** (draw targets in a clip region below the scalloped edge, then draw the bank over them). Until its whole picture is below the line (its top edge past y 100) it is **veiled**: drawn at 50% opacity with a dashed rim (dash 9 on / 7 off in a 100-unit target grid, so scaled with the target). Stars pass through it and do not pop it. The moment its whole picture is below the line it becomes solid over 150ms and becomes poppable (the story-66 rule). It makes no turn in its first 0.5s after that.
+- **Stars** twinkle out at the line: removed when their top edge reaches y 100. A small sunshine four-point sparkle (radius 9) may show there for 0.33s.
+- **Lost paw.** When a plain target begins its bottom fade (story 56 rule: opacity `clamp((H - y) / (0.1 H), 0, 1)`) the rightmost full paw fades to used over 0.6s. The target keeps fading behind the ship. **Grace 3s:** for 3s after a paw is lost, the ship gets a soft **peach glow** (three flat circles under the ship, radii 62 / 52 / 44dp, `#FF9A76` at 16% / 24% / 34%, no blur; fades in over 300ms, out over the last 500ms; does not pulse), and further misses cost nothing. No sound, shake, red or flash. Peach was chosen so it never matches the sunshine glow of star gifts or the lilac glow of slow drift.
+
+### Good-game screen (both games)
+Shown by Blocks when stuck with no paws (story 65) and by Pop when the third paw is lost (story 69). One layout, only the background differs.
+
+| Element | Spec |
+|---|---|
+| Background | **Blocks:** the frozen board and tray under a cream `#FFF3E4` wash at 84%. **Pop:** the sky with the ship resting at 50% opacity (no flame change), under a white wash at 20%. Paws and score strip are hidden (a row of hollow paws would read as sad). No red, no grey-out |
+| Corner home | The normal 56dp home button at (20, 20), drawn on top, always works, never locked |
+| Animal | Fox (the Blocks peek-up fox), **132dp** box at (114, 120), ears up. Any of the six Paw Match critters may be used, rotating. **Normal:** the calm face (dot eyes, small smile, faint cheeks). **New best:** the happy face (squeezed arched eyes, open smile with tongue, pink cheeks). Never a sad, worried or crying face |
+| Card | 300 x 208dp white, radius 29, 3dp edge `#EADFCF` at (30, 232). On new best the edge is sunshine `#FFD23F` |
+| Score | This game's score: **68sp**, weight 800, ink, centred, baseline y 310. No label and no icon (the number alone is this game) |
+| Divider | 2dp `#EADFCF` line, x 64 to 296, y 336 |
+| Best score | A pill 72dp tall (y 352 to 424), centred, holding the **rosette (56dp)**, a 14dp gap, then the best score at **44sp**, weight 800. Pill width = 56 + 14 + digits x 27 + 40 padding. Normal: fill `#FBF4EA`, 2dp `#EADFCF` edge. New best: fill `#FFF3C4`, 2.5dp sunshine edge plus the glow below |
+| Buttons | Play again: 88dp circle, leaf `#35C46B`, white paw 40dp (same as Match, Pour), centre (120, 516). Home: 88dp circle, sky `#4FC1E9`, white house 40dp, centre (240, 516). **32dp between them** (the older win screens use 24; 32 here because a child mashes this screen more). Both far above the 72dp minimum |
+| Adult gate | None needed: nothing here reaches money, a link or settings |
+
+**Rosette (best-score cue, chosen over a coin, star or crown).** Drawn on a 64-unit box, ink 45% 2-unit outline, round joins: two ribbon tails (`M-9,10 L-19,32 L-10,27 L-4,33 L1,12Z` in sky `#4FC1E9`, and its mirror `M9,10 L19,32 L10,27 L4,33 L-1,12Z` in `#2FA0CC`); ten scallop circles r 8 at radius 17 around the centre in grape `#8E59E6`; a grape disc r 19.5; a white ring r 13; a grape disc r 10.5; a white paw (80-grid paw scaled to 13 units) in the middle. Shown 56dp on the screen. Its silhouette (scalloped disc with two tails) is unlike a coin or a star in greyscale. White on grape measures 4.4. **Alternative shown, not chosen:** a sunshine crown (`M-22,14 L-26,-16 L-11,-2 L0,-22 L11,-2 L26,-16 L22,14Z`, `#FFD23F`, rim `#D99A00`, band beneath, three jewel dots); it reads a little closer to gold. The founder picks between the two; until then build the rosette.
+
+### Motion and timing
+| Moment | Behaviour | Time |
+|---|---|---|
+| Score change | Count-up, no flash or bounce | under 0.4s |
+| Paw fade | Solid to hollow dotted | 0.6s |
+| Blocks clear-out | Existing look; paw fades from t = 200ms | 0.9s |
+| Pop grace | Peach ship glow, misses free | 3s (fades in 0.3s, out last 0.5s) |
+| Pop entry | Veiled until fully below the line, then solid | solid over 150ms; no turn for 0.5s |
+| Good-game appears | Fades in over the dimmed background, about 1s after the last move (Blocks) or the moment the third paw is lost and the targets have faded (Pop) | 0.5s |
+| Button lockout | Play again and home ignore touches. **No visual change** (no greying, no dim, no spinner): the buttons are visible as the screen fades in and simply wake at 0.6s | first 0.6s |
+| New best | Best pill glow (three flat sunshine rounded rectangles around the pill, 6 / 12 / 18dp out, 35% / 22% / 12%, breathing 55% to 100% over 1.4s, twice, then resting at 55%); fox **three hops of 18dp, 0.67s each** (starting at 0.5s, so it ends at about 2.5s); six soft four-point sparkles (sunshine and white, radius 7 to 15) twinkling 1.3s each, twice | about 2s after fade-in |
+| Rule | Nothing flashes or blinks faster than 3 times a second (hops 1.5/s, glow 0.7/s, sparkles 0.8/s). Reduced motion: no hop and no twinkle, the glow stays steady |
+| Never | Red, grey-out, shake, sad face, sound, "game over" or "you lost" wording, comparison to anyone, a count of what went wrong |
+
+### Type and number legibility
+Score 32sp in play, 68sp and 44sp on the good-game screen, weight 800, tabular figures, ink on a light ground (at least 10 to 1). Digits must be unambiguous (no confusable 1 / l / I), as the type rule at the top of this file already requires. Numbers are plain digits: no thousands separators, no plus signs, no "+10" popups, no "pts" label.
+
+### Decisions awaiting founder OK (mockup review)
+Rosette (recommended) or crown; Pop's cloud-bank top edge (recommended) or a straight edge. Decided by the design, open to objection: paws fade from the right; score top right with paws beside home; Blocks board and tray 36 and 12dp lower; green paw play-again kept; corner home stays on the good-game screen; no paws on the good-game screen.
 
 ## Hard rules
 - Every screen designed for a phone held one-handed by small hands, landscape or portrait per the game's needs.

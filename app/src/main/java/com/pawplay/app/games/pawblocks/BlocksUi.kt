@@ -40,6 +40,9 @@ internal class GrowFx(val start: Long, val from: Int, val to: Int) {
     val end get() = start + BlocksTiming.GROWTH_MS
 }
 
+/** The paw starts to fade 200ms into the clear-out's 900ms. */
+internal const val PAW_FADE_DELAY_MS = 200L
+
 internal fun easeOut(k: Float): Float = 1f - (1f - k.coerceIn(0f, 1f)).let { it * it * it }
 internal fun easeInOut(k: Float): Float {
     val t = k.coerceIn(0f, 1f)
@@ -51,7 +54,12 @@ internal fun easeInOut(k: Float): Float {
  * are playing. Plain Kotlin apart from two Compose state holders that tell the drawing to run again.
  * The pointer functions take positions in dp relative to the play area.
  */
-internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
+internal class BlocksUi(
+    val session: BlocksSession,
+    seed: Int = 11,
+    /** Told the new score after every legal placement; the screen saves the best from it the moment it is beaten (story 70). */
+    private val onScore: (Int) -> Unit = {},
+) {
     val tracker = DragTracker()
     var layout: BlocksLayout = blocksLayout(360f, 692f)
 
@@ -63,17 +71,42 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
     var trayInStart: Long = Long.MIN_VALUE
     var liftStart: Long = 0L
 
+    /** The paw that was spent by the latest clear-out (its index, 0 to 2) and when its 0.6s fade begins; -1 until the first clear-out. */
+    var pawFadeIndex: Int = -1
+        private set
+    var pawFadeStart: Long = 0L
+        private set
+
     /** The screen's frame time; the drawing reads this so it redraws every frame while something moves. */
     val frame = mutableLongStateOf(0L)
     /** Bumped when a touch changed something between frames. */
     val revision = mutableIntStateOf(0)
 
     private val random = Random(seed)
+
+    /**
+     * The game's own time, in milliseconds: the screen's frame clock less every stretch the app spent in the background.
+     * Every timer and effect (the stuck wait, the refill, growth, fades) runs on this one clock, so leaving the app and
+     * coming back changes nothing: no clear-out, no ending and no refill fires on the first frame back (docs/PRD.md story 72).
+     * It starts at 0 with the first frame (and a touch before that frame reads the real time since this screen was made, from 0),
+     * so a fresh game after "play again" is on the same footing as the first.
+     */
     private var lastFrameMs = 0L
-    private var lastFrameWall = 0L
+    private var lastFrameWall = System.nanoTime()
+
+    /** The frame clock's value at the last frame (raw), and how much of it was time away that the game's clock leaves out. */
+    private var lastRawMs = Long.MIN_VALUE
+    private var awayMs = 0L
+    private var justResumed = false
+
+    /** The app came back to the foreground: the time since the last frame does not count for the game. Called on ON_RESUME. */
+    fun resumed() {
+        justResumed = true
+        lastFrameWall = System.nanoTime() // a touch before the first frame back is judged from now, not from before the pause
+    }
 
     /** "Now" for a touch: the last frame's time plus the real time since, so a touch after a quiet spell is not stale. */
-    fun nowMs(): Long = if (lastFrameWall == 0L) lastFrameMs else lastFrameMs + (System.nanoTime() - lastFrameWall) / 1_000_000L
+    fun nowMs(): Long = lastFrameMs + (System.nanoTime() - lastFrameWall) / 1_000_000L
 
     /** True while anything needs another frame: a finger is down, an effect is playing, or the game has a follow-up due. */
     val active: Boolean
@@ -91,14 +124,26 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
 
     // ------------------------------------------------------------ frames
 
-    fun onFrame(now: Long) {
+    fun onFrame(rawMs: Long) {
+        if (lastRawMs == Long.MIN_VALUE) awayMs = rawMs // the first frame is time 0, the same epoch a touch before it reads
+        else if (justResumed) awayMs += maxOf(0L, rawMs - lastRawMs) // the pause did not happen, as far as the game knows
+        justResumed = false
+        lastRawMs = rawMs
+        val now = rawMs - awayMs
         lastFrameMs = now
         lastFrameWall = System.nanoTime()
         for (event in session.tick(now)) {
             when (event) {
                 is SessionEvent.Grew -> grow = GrowFx(now, event.size - 1, event.size)
                 SessionEvent.Refilled -> trayInStart = now
-                is SessionEvent.ClearedOut -> outs += clearOutFx(now, event)
+                is SessionEvent.ClearedOut -> {
+                    outs += clearOutFx(now, event)
+                    // The paw fades from the same instant as the wash (t = 200ms of the 900ms), so the frames that
+                    // the clear-out effect keeps running cover the whole 0.6s.
+                    pawFadeIndex = event.pawsLeft
+                    pawFadeStart = now + PAW_FADE_DELAY_MS
+                }
+                is SessionEvent.GameEnded -> Unit // the screen reads session.phase and fades in the good-game screen
             }
         }
         drops.removeAll { now >= it.end }
@@ -114,6 +159,7 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
 
     /** A finger went down. True if it grabbed a tray block (only then does the game follow it). */
     fun onDown(id: Long, x: Float, y: Float): Boolean {
+        if (session.phase != BlocksPhase.PLAYING) return false // the game has ended kindly: nothing more to grab
         val slot = layout.slotAt(x, y)
         val hasBlock = slot >= 0 && session.slot(slot) != null
         if (!tracker.down(id, x, y, slot, hasBlock)) return false
@@ -124,6 +170,14 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
         revision.intValue++
         return true
     }
+
+    /**
+     * Where the carried block would land, for the ghost, or null. Null too until the finger has travelled the tap
+     * slop: a press-and-hold is a tap (it goes home on release), so it must not promise a drop (story 41). Uses the
+     * same [BlocksLayout.dropSpot] call as [finish], so what the ghost shows is what the drop does.
+     */
+    fun ghostSpot(shape: BlockShape, cell: Float): Spot? =
+        if (tracker.active && tracker.pastSlop) layout.dropSpot(session.board, shape, cell, tracker.x, tracker.y) else null
 
     fun onMove(id: Long, x: Float, y: Float): Boolean = tracker.move(id, x, y)
 
@@ -170,12 +224,14 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
         if (shape == null) return
         val cell = displayCell(now)
         val pose = dragPose(shape, ended.slot, ended.x, ended.y, now)
-        val spot = if (drop) layout.dropSpot(session.board, shape, cell, ended.x, ended.y) else null
+        // A tap (the finger never really moved) is not a drop: the block goes home.
+        val spot = if (drop && !ended.wasTap) layout.dropSpot(session.board, shape, cell, ended.x, ended.y) else null
         val placed = spot?.let { session.place(ended.slot, it.row, it.col, now) }
         if (placed == null) {
             returns += ReturnFx(ended.slot, now, pose.x, pose.y, pose.s)
             return
         }
+        onScore(session.score)
         drops += DropFx(now, shape, placed.row, placed.col, pose.x, pose.y, pose.s)
         if (placed.cleared) lines += lineFx(now + BlocksTiming.DROP_MS, placed, session.board.size, cell)
     }

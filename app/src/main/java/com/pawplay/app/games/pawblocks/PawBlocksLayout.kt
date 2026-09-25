@@ -8,9 +8,12 @@ import kotlin.math.min
 
 /**
  * Where things go on the Paw Blocks screen, as plain numbers in dp (docs/DESIGN-SYSTEM.md, "Board" and
- * "Tray"). The reference play area is 360 x 692dp: home 56dp at (20, 20); board panel 348dp at left 6, top 96
- * (grid 340dp inside a 4dp padding, so a 9x9 cell is 37.8dp); tray slots 96 x 112dp with 12dp gaps, which
- * puts their outer edges 24dp in from the screen sides (clear of the back-gesture strip), top at 508. On other
+ * "Tray"). The reference play area is 360 x 692dp: home 56dp at (20, 20); the top strip above the board holds the
+ * paws (32dp each, 8dp apart, from x 92, top 32) and the score (right-aligned 20dp from the right edge, 32dp
+ * figures), and ends at y 76; board panel 348dp at left 6, top 132 (36dp lower than before, so the peeking animal
+ * has its own lane and its ears stop at y 70, clear of the strip; grid 340dp inside a 4dp padding, so a 9x9 cell is
+ * 37.8dp); tray slots 96 x 112dp with 12dp gaps, which puts their outer edges 24dp in from the screen sides (clear
+ * of the back-gesture strip), top at 520, 40dp below the panel (was 508). On other
  * screens the panel follows the width (never wider than 348, always 6dp in from the sides); on a 320dp phone a
  * 9x9 cell is 33.3dp, which is about the most 320dp can give nine cells. The tray, gaps and margins give way
  * before the board does, the slots never drop below 72dp, and everything is on screen, no scrolling.
@@ -31,6 +34,13 @@ class BlocksLayout(
     val gridSize: Float get() = panelSize - 2 * PANEL_PADDING
     val panelRight: Float get() = panelLeft + panelSize
     val panelBottom: Float get() = panelTop + panelSize
+
+    /**
+     * How far above the panel's top the peeking animal's head reaches when fully up: [CRITTER_RISE] (68) on the reference
+     * screen, less when the top margin has been squeezed (a short phone), so the animal's ears never go higher than
+     * [CRITTER_TOP_MIN] and never cover the paws, the score or the home button in the strip.
+     */
+    val critterLift: Float get() = min(CRITTER_RISE, panelTop - CRITTER_TOP_MIN)
 
     fun slotLeftOf(i: Int): Float = slotLeft + i * (slotWidth + SLOT_GAP)
 
@@ -81,25 +91,39 @@ class BlocksLayout(
         const val REFERENCE_PANEL = 348f      // the widest the board gets, however wide the phone
         const val SIDE_MARGIN = 6f            // panel edge to screen edge: the board is never touched, so it may go near the edge
         const val TRAY_SIDE_MARGIN = 24f      // tray edge to screen edge: keeps the outer slots off the back-gesture strip
-        const val REFERENCE_TOP = 96f
-        const val MIN_TOP = 84f
+        const val REFERENCE_TOP = 132f        // was 96: the strip and the animal's peek lane sit above the board
+        const val CRITTER_RISE = 68f          // the animal's head top above the panel top, when there is room (the reference screen)
+        const val CRITTER_TOP_MIN = 64f       // the animal's drawing never starts higher than this (its ears are drawn 6dp lower, at 70, clear of the score's figures)
+        const val MIN_TOP = 96f               // never up into the strip, which ends at STRIP_BOTTOM
         const val REFERENCE_SLOT_HEIGHT = 112f
         const val REFERENCE_SLOT_WIDTH = 96f
-        const val REFERENCE_BOTTOM_MARGIN = 72f
+        const val REFERENCE_BOTTOM_MARGIN = 60f // was 72
         const val MIN_BOTTOM_MARGIN = 12f
         const val MIN_GAP = 12f               // board to tray
-        const val REFERENCE_GAP = 24f
+        const val REFERENCE_GAP = 40f         // was 24
         const val MIN_SLOT = 72f
+
+        // The top strip: home (above), then paws, then the score at the far right. All plain dp from the play area's top-left.
+        const val PAW_SIZE = 32f
+        const val PAW_GAP = 8f
+        const val PAWS_LEFT = 92f             // right of the home button (20 + 56) and 16dp of air
+        const val PAWS_TOP = 32f              // vertically centred on the home button (centre y 48)
+        const val SCORE_MARGIN_RIGHT = 20f    // the same 20dp as the home button's inset
+        const val STRIP_TOP = 20f
+        const val STRIP_BOTTOM = 76f          // the home button's bottom edge
+
+        /** Left edge of paw [i] (0 to 2): x = 92, 132, 172. */
+        fun pawLeft(i: Int): Float = PAWS_LEFT + i * (PAW_SIZE + PAW_GAP)
     }
 }
 
 /**
  * Lays the screen out for a play area [width] x [height] dp (inside any system bars). On the reference
- * 360 x 692 screen: panel (6, 96, 348), slots 96 x 112 at y 508. Wider screens keep those sizes and centre; narrower
+ * 360 x 692 screen: panel (6, 132, 348), slots 96 x 112 at y 520. Wider screens keep those sizes and centre; narrower
  * ones shrink the panel to width - 12 and the slots to fit 24dp in from each side (never under 72dp).
- * Short screens give up, in this order, the tray's bottom margin (72 to 12), slot height (112 to 72), the gap
- * above the tray (24 to 12) and the top margin (96 to 84), and only then shrink the panel. Tall screens leave the
- * tray near the bottom and put a little of the extra room above the board.
+ * Short screens give up, in this order, the tray's bottom margin (60 to 12), slot height (112 to 72), the gap
+ * above the tray (40 to 12) and the top margin (132 to 96, never into the score strip), and only then shrink the
+ * panel. Tall screens leave the tray near the bottom and put a little of the extra room above the board.
  */
 fun blocksLayout(width: Float, height: Float): BlocksLayout {
     val w = max(width, 1f)
@@ -125,7 +149,7 @@ fun blocksLayout(width: Float, height: Float): BlocksLayout {
 
     val slotTop = h - bottom - slotH
     val spare = slotTop - (top + panel)
-    val panelTop = if (spare > 64f) top + (spare - 64f) * 0.3f else top
+    val panelTop = if (spare > BlocksLayout.REFERENCE_GAP) top + (spare - BlocksLayout.REFERENCE_GAP) * 0.3f else top
     return BlocksLayout(
         width = w, height = h,
         panelLeft = (w - panel) / 2f, panelTop = panelTop, panelSize = panel,
@@ -145,6 +169,14 @@ fun blocksLayout(width: Float, height: Float): BlocksLayout {
 object Snap {
     const val RIDE_DP = 64f
     const val MIN_REACH_DP = 40f
+
+    /**
+     * A finger that lifts having moved less than this from where it landed made a tap, not a drag: the block goes
+     * home. Needed since the board sits 36dp lower and the tray 12dp lower (2026-09-25, room for the score strip):
+     * the gap between them is now 40dp, and a block riding 64dp above a resting finger would otherwise snap onto
+     * the board's bottom row from a mere tap. Every real placement moves the finger far more than this.
+     */
+    const val TAP_SLOP_DP = 12f
     private const val TIE_DP = 0.5f
 
     fun reach(cell: Float): Float = max(cell, MIN_REACH_DP)
@@ -191,12 +223,20 @@ class DragTracker {
     var y: Float = 0f
         private set
 
+    private var startX = 0f
+    private var startY = 0f
+    private var travel = 0f
+
     val active: Boolean get() = pointerId != null
+
+    /** True once the finger has travelled [Snap.TAP_SLOP_DP] or more from where it landed: from then on this is a drag, not a tap. Stays true for the rest of the touch. */
+    val pastSlop: Boolean get() = active && travel >= Snap.TAP_SLOP_DP
 
     /** A finger went down at [px], [py] on [slotHit] (or -1), which [hasBlock] says can be lifted. True if this finger now drags. */
     fun down(id: Long, px: Float, py: Float, slotHit: Int, hasBlock: Boolean): Boolean {
         if (active || slotHit < 0 || !hasBlock) return false
         pointerId = id; slot = slotHit; x = px; y = py
+        startX = px; startY = py; travel = 0f
         return true
     }
 
@@ -204,6 +244,7 @@ class DragTracker {
     fun move(id: Long, px: Float, py: Float): Boolean {
         if (id != pointerId) return false
         x = px; y = py
+        travel = max(travel, hypot(px - startX, py - startY))
         return true
     }
 
@@ -211,6 +252,7 @@ class DragTracker {
     fun up(id: Long, px: Float, py: Float): Ended? {
         if (id != pointerId) return null
         x = px; y = py
+        travel = max(travel, hypot(px - startX, py - startY))
         return end()
     }
 
@@ -218,10 +260,13 @@ class DragTracker {
     fun cancel(): Ended? = if (active) end() else null
 
     private fun end(): Ended {
-        val ended = Ended(slot, x, y)
+        val ended = Ended(slot, x, y, travel)
         pointerId = null; slot = -1
         return ended
     }
 
-    class Ended(val slot: Int, val x: Float, val y: Float)
+    /** [travel] is the furthest the finger got from where it landed, in dp; under [Snap.TAP_SLOP_DP] it was a tap. */
+    class Ended(val slot: Int, val x: Float, val y: Float, val travel: Float = Float.MAX_VALUE) {
+        val wasTap: Boolean get() = travel < Snap.TAP_SLOP_DP
+    }
 }

@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -37,15 +38,17 @@ import kotlin.math.sin
 internal fun svg(d: String): Path = PathParser().parsePathString(d).toPath()
 
 /** Strokes that stay [dp] wide on screen when drawn inside a `scale(size / 100)`, made once per whole-dp size. */
-internal class SizedStroke(private val dp: Float, private val cap: StrokeCap = StrokeCap.Butt) {
+internal class SizedStroke(private val dp: Float, private val cap: StrokeCap = StrokeCap.Butt, private val dash: FloatArray? = null) {
     private val made = arrayOfNulls<Stroke>(80)
     fun at(size: Float): Stroke {
         val i = (size.toInt() - 40).coerceIn(0, 79)
-        return made[i] ?: Stroke(dp * 100f / (i + 40), cap = cap, join = StrokeJoin.Round).also { made[i] = it }
+        return made[i] ?: Stroke(dp * 100f / (i + 40), cap = cap, join = StrokeJoin.Round, pathEffect = dash?.let { PathEffect.dashPathEffect(it) }).also { made[i] = it }
     }
 }
 
 private val Rim3 = SizedStroke(3f)
+/** The rim of a target still coming in above the entry line: dashed, 9 on and 7 off in the target's own 100-unit grid, so it scales with the target. */
+private val Rim3Veiled = SizedStroke(3f, dash = floatArrayOf(9f, 7f))
 private val Rim2 = SizedStroke(2f)
 private val Str16 = SizedStroke(1.6f, StrokeCap.Round)
 private val Str18 = SizedStroke(1.8f, StrokeCap.Round)
@@ -231,8 +234,8 @@ private fun DrawScope.frogEyes(size: Float, happy: Boolean) {
  * One target's body in local units (call inside `translate(cx, cy) { scale(size / 100) { ... } }`), filled with [fill],
  * with the 3dp rim that carries the lightest colours against the sky. Order back to front: string, knot, body, shine.
  */
-internal fun DrawScope.targetBody(kind: TargetKind, fill: Color, size: Float, critter: Int, happy: Boolean = false) {
-    val rim = Rim3.at(size)
+internal fun DrawScope.targetBody(kind: TargetKind, fill: Color, size: Float, critter: Int, happy: Boolean = false, veiled: Boolean = false) {
+    val rim = if (veiled) Rim3Veiled.at(size) else Rim3.at(size)
     when (kind) {
         TargetKind.ROUND -> {
             drawCircle(fill, 50f, Offset.Zero)
@@ -271,15 +274,21 @@ internal fun DrawScope.targetBody(kind: TargetKind, fill: Color, size: Float, cr
     }
 }
 
-/** The free animal a critter pop leaves: ears at 0.8, face at 1.4 shifted up 6, happy, no bubble. Local units. */
-internal fun DrawScope.freeCritter(critter: Int, size: Float) {
+/** The free animal a critter pop leaves: ears at 0.8, face at 1.4 shifted up 6, happy (or [happy] false: the calm smile), no bubble. Local units. */
+internal fun DrawScope.freeCritter(critter: Int, size: Float, happy: Boolean = true) {
     scale(0.8f, 0.8f, Offset.Zero) { critterEars(critter, size) }
     scale(1.4f, 1.4f, Offset.Zero) {
         translate(0f, -6f) {
-            critterFace(critter, size, true)
-            if (critter == 3) frogEyes(size, true)
+            critterFace(critter, size, happy)
+            if (critter == 3) frogEyes(size, happy)
         }
     }
+}
+
+/** The good-game screen's animal: one of Pop's four critters filling the canvas, with a calm smile or (a new best) the happy face. */
+internal fun DrawScope.goodGameCritter(critter: Int, happy: Boolean) {
+    val unit = size.minDimension / 115f
+    translate(size.width / 2f, size.height * 0.62f) { scale(unit, unit, Offset.Zero) { freeCritter(critter, 110f, happy) } }
 }
 
 /** The two soft lilac ellipses behind a target while slow drift runs: its hit ellipse grown by 0.18 S and 0.09 S. */
@@ -300,12 +309,13 @@ internal fun DrawScope.slowHalo(kind: TargetKind) {
 internal fun DrawScope.drawTarget(
     kind: TargetKind, colour: Int, critter: Int, size: Float, cx: Float, cy: Float,
     alpha: Float = 1f, grow: Float = 1f, halo: Boolean = false, gift: GiftKind? = null, giftT: Float = 0f, happy: Boolean = false,
+    veiled: Boolean = false,
 ) {
     withGroupAlpha(alpha, cx, cy, size * 1.4f) {
         translate(cx, cy) {
             scale(size / 100f * grow, size / 100f * grow, Offset.Zero) {
                 if (halo) slowHalo(kind)
-                targetBody(kind, TargetColors[colour], size, critter, happy)
+                targetBody(kind, TargetColors[colour], size, critter, happy, veiled)
                 if (gift != null) carrierGift(gift, size, giftT)
             }
         }

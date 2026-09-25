@@ -65,8 +65,19 @@ private val EyeStroke = Stroke(3f, cap = StrokeCap.Round, join = StrokeJoin.Roun
 /** The colour of this animal's paws on the board's edge: its head colour. */
 internal fun critterPawColor(index: Int): Color = looks[index.mod(looks.size)].head
 
-/** Draws critter [index] (0-5) on an 80 x 80 grid whose top-left is the current origin, scaled to [size] units. */
-internal fun DrawScope.drawHappyCritter(index: Int, size: Float) {
+/** Draws critter [index] (0-5) with the happy face on an 80 x 80 grid whose top-left is the current origin, scaled to [size] units. */
+internal fun DrawScope.drawHappyCritter(index: Int, size: Float) = drawCritter(index, size, happy = true)
+
+/**
+ * The calm face for the good-game screen: dot eyes, a small smile, faint cheeks. Never sad, worried or crying
+ * (docs/DESIGN-SYSTEM.md, "Good-game screen"). A new best gets [drawHappyCritter] instead.
+ */
+internal fun DrawScope.drawCalmCritter(index: Int, size: Float) = drawCritter(index, size, happy = false)
+
+private val SmilePath = svg("M33,56Q40,62 47,56")
+private val SmileStroke = Stroke(2.4f, cap = StrokeCap.Round, join = StrokeJoin.Round)
+
+private fun DrawScope.drawCritter(index: Int, size: Float, happy: Boolean) {
     val look = looks[index.mod(looks.size)]
     scale(scale = size / 80f, pivot = Offset.Zero) {
         when (look.ears) {
@@ -86,12 +97,19 @@ internal fun DrawScope.drawHappyCritter(index: Int, size: Float) {
         drawCircle(look.head, 25f, Offset(40f, 46f))
         drawCircle(Rim, 25f, Offset(40f, 46f), style = RimStroke)
         drawOval(look.muzzle, Offset(27f, 45f), Size(26f, 18f))
-        drawCircle(BlocksBlush, 4.6f, Offset(24f, 52f), alpha = 0.7f)
-        drawCircle(BlocksBlush, 4.6f, Offset(56f, 52f), alpha = 0.7f)
-        drawPath(EyesPath, InkColor, style = EyeStroke)
-        drawPath(MouthPath, BlocksMouth)
-        drawPath(MouthPath, InkColor, style = RimStroke)
-        drawPath(TonguePath, BlocksBlush)
+        val cheek = if (happy) 0.7f else 0.4f
+        drawCircle(BlocksBlush, 4.6f, Offset(24f, 52f), alpha = cheek)
+        drawCircle(BlocksBlush, 4.6f, Offset(56f, 52f), alpha = cheek)
+        if (happy) {
+            drawPath(EyesPath, InkColor, style = EyeStroke)
+            drawPath(MouthPath, BlocksMouth)
+            drawPath(MouthPath, InkColor, style = RimStroke)
+            drawPath(TonguePath, BlocksBlush)
+        } else {
+            drawCircle(InkColor, 2.8f, Offset(31f, 42f))
+            drawCircle(InkColor, 2.8f, Offset(49f, 42f))
+            drawPath(SmilePath, InkColor, style = SmileStroke)
+        }
         drawPath(NosePath, InkColor)
     }
 }

@@ -7,17 +7,26 @@ import androidx.compose.runtime.mutableLongStateOf
  * run again. Every rule lives in [PopSession]; this only turns frames and pointer changes into calls on it.
  * Pointer positions are dp relative to the play area.
  */
-internal class PopUi(val session: PopSession) {
+internal class PopUi(val session: PopSession, private val onScore: (Int) -> Unit = {}) {
     /** The frame time, bumped every frame: the drawing reads it, so it redraws every frame (the game never rests). */
     val frame = mutableLongStateOf(0L)
 
+    /**
+     * True while the game still moves and needs another frame: through play and the 0.5s fade-out. Once it is over nothing
+     * animates behind the good-game screen, so the frame loop stops and the scene is left as its last frame drew it.
+     */
+    val active: Boolean get() = session.phase != PopPhase.OVER
+
     private var lastNanos = 0L
+    private var lastScore = session.score
 
     /** One frame at [nanos] (the screen's frame clock). The first frame after a start, or after a long gap, is one short step. */
     fun onFrame(nanos: Long) {
         val dt = if (lastNanos == 0L || nanos <= lastNanos) 0f else (nanos - lastNanos) / 1_000_000_000f
         lastNanos = nanos
         session.step(dt) // the session caps a step at 50ms, so backgrounding or a slow frame never makes anything jump
+        // The best is saved the moment a pop lifts the score past it, so leaving early (home, back, closing) never loses it.
+        if (session.score != lastScore) { lastScore = session.score; onScore(lastScore) }
         frame.longValue = nanos
     }
 

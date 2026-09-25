@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 11 and older: nothing in this app is backed up to the cloud.
+  The only thing the app stores is a best score per game (docs/DECISIONS.md,
+  "The saved number never leaves the phone"). android:allowBackup is false too;
+  this file keeps the intent explicit if that is ever flipped.
+-->
+<full-backup-content>
+    <exclude domain="root" />
+    <exclude domain="file" />
+    <exclude domain="database" />
+    <exclude domain="sharedpref" />
+    <exclude domain="external" />
+</full-backup-content>

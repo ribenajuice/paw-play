@@ -22,6 +22,9 @@ import kotlin.random.Random
  *  - snap maths against a brute-force oracle, colours re-derived, layout sweeps
  */
 class PawBlocksQaTest {
+    /** Paws that cannot run out, for the tests that check the rescue always leaves a move (the real 3-paw rule is in PawBlocksScoreAndPawsTest). */
+    private val PLENTY_OF_PAWS = 1_000_000
+
     private fun shape(id: String) = BlockShapes.byId.getValue(id)
     private val dot = BlockShapes.dot
 
@@ -390,7 +393,7 @@ class PawBlocksQaTest {
 
     private fun adversarial(startClears: Int, seed: Int, strategy: Int, moves: Int, stats: Stats) {
         val rnd = Random(seed)
-        val s = BlocksSession(Random(seed * 31 + 7), startClears = startClears)
+        val s = BlocksSession(Random(seed * 31 + 7), startClears = startClears, startPaws = PLENTY_OF_PAWS)
         var now = 0L
         var lastMove = -100_000L
         var busyEnd = -100_000L
@@ -402,6 +405,7 @@ class PawBlocksQaTest {
         fun step(dt: Long): List<SessionEvent> {
             now += dt
             val boardBefore = s.board; val trayBefore = s.tray; val clearsBefore = s.clears; val dealsBefore = s.trayDeals
+            val pawsBefore = s.paws; val scoreBefore = s.score
             val events = s.tick(now)
             assertEquals("tick never changes the ramp count: ${ctx()}", clearsBefore, s.clears)
             for (e in events) when (e) {
@@ -441,7 +445,11 @@ class PawBlocksQaTest {
                         assertEquals(if (r in e.rows) null else boardBefore.familyAt(r, c), s.board.familyAt(r, c))
                     assertTrue("something fits after a clear-out: ${ctx()}", s.tray.filterNotNull().any { s.board.hasSpot(it) })
                     assertEquals(e.removed.size, boardBefore.filledCount - s.board.filledCount)
+                    assertEquals("one paw per clear-out: ${ctx()}", pawsBefore - 1, s.paws)
+                    assertEquals(s.paws, e.pawsLeft)
+                    assertEquals("a clear-out scores nothing: ${ctx()}", scoreBefore, s.score)
                 }
+                is SessionEvent.GameEnded -> fail("the game ended with paws that cannot run out: ${ctx()}")
             }
             assertTrue("a resting board never holds a complete line", s.board.completedRows().isEmpty() && s.board.completedCols().isEmpty())
             assertTrue(s.board.size in 5..9)
@@ -683,8 +691,8 @@ class PawBlocksQaTest {
 
     // ================================================================== 9. the touch layer: BlocksUi
 
-    private fun freshUi(tray: List<BlockShape?> = listOf(dot, shape("bar2h"), shape("bar2v")), board: Board? = null, seed: Int = 3): BlocksUi {
-        val s = BlocksSession(Random(seed), startBoard = board, startTray = tray)
+    private fun freshUi(tray: List<BlockShape?> = listOf(dot, shape("bar2h"), shape("bar2v")), board: Board? = null, seed: Int = 3, paws: Int = BlocksRamp.START_PAWS): BlocksUi {
+        val s = BlocksSession(Random(seed), startBoard = board, startTray = tray, startPaws = paws)
         return BlocksUi(s).also { it.onFrame(1000) }
     }
 
@@ -792,7 +800,7 @@ class PawBlocksQaTest {
     @Test
     fun `mashing - thousands of random touches, cancels and frames never lose, duplicate or double-place a block`() {
         val random = Random(555)
-        val ui = freshUi(tray = listOf(dot, shape("bar2h"), shape("bar2v")), seed = 5)
+        val ui = freshUi(tray = listOf(dot, shape("bar2h"), shape("bar2v")), seed = 5, paws = PLENTY_OF_PAWS)
         val s = ui.session
         var frameMs = 1000L
         var lastTray = s.tray

@@ -236,7 +236,7 @@ class PopEffectsTest {
     fun `only one gift can be in flight, and a second carrier popped meanwhile just pops`() {
         val s = bare(); s.holdFireForTest = false
         s.addTargetForTest(TargetKind.ROUND, s.shipX, s.nose - 100f, 100f, gift = GiftKind.TRIPLE)
-        s.addTargetForTest(TargetKind.ROUND, s.shipX, s.nose - 260f, 100f, gift = GiftKind.SLOW)
+        s.addTargetForTest(TargetKind.ROUND, s.shipX, s.nose - 230f, 100f, gift = GiftKind.SLOW)
         var most = 0
         s.run(1.5f) { most = maxOf(most, if (it.gift != null) 1 else 0) }
         assertEquals(2, s.pops)
@@ -300,7 +300,7 @@ class PopEffectsTest {
         s.step(0.05f)
         assertEquals(60f, s.ribbonLength, 0.5f) // 1200 dp a second
         s.run(1f)
-        assertEquals(s.nose + 10f, s.ribbonLength, 0.5f)
+        assertEquals("the ribbon stops at the entry line, like the stars", s.nose - PopMetrics.SKY_TOP, s.ribbonLength, 0.5f)
         s.clearTargetsForTest()
         s.addTargetForTest(TargetKind.ROUND, s.shipX + 20f, 250f, 100f)   // in the 56dp column
         s.addTargetForTest(TargetKind.ROUND, s.shipX + 140f, 250f, 100f)  // well outside it
@@ -339,12 +339,12 @@ class PopEffectsTest {
         assertTrue(s.slowLeft > 7.9f)
         val y = t.y
         s.run(1f)
-        assertEquals(0.07f * 692f * 0.5f, t.y - y, 0.6f)
+        assertEquals(0.06f * 692f * 0.5f, t.y - y, 0.6f)
         s.run(8f)
         assertEquals(0f, s.slowLeft, 0f)
         val y2 = t.y
         s.run(0.5f)
-        assertEquals("back to full speed: half a second covers half a second's drift", 0.07f * 692f * 0.5f, t.y - y2, 0.6f)
+        assertEquals("back to full speed: half a second covers half a second's drift", 0.06f * 692f * 0.5f, t.y - y2, 0.6f)
     }
 
     @Test
