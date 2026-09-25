@@ -123,13 +123,132 @@ class PopSteeringTest {
         s.touchMove(2L, 200f); s.run(2.5f)
         assertEquals(200f, s.shipX, 0.5f)
         s.touchUp(2L)                    // the newest lifts: the ship stays put ...
-        s.touchMove(1L, 60f)             // ... and the older finger, still down, does not capture it
+        s.touchMove(1L, 54f)             // ... and the older finger, still down and only resting, does not capture it
         s.run(2f)
         assertEquals(200f, s.shipX, 0.5f)
         assertFalse(s.isSteering)
         s.touchDown(1L, 60f)             // only a new touch steers again
         s.run(2.5f)
         assertEquals(60f, s.shipX, 0.5f)
+    }
+
+    @Test
+    fun `when the steering finger lifts, an older finger that keeps dragging takes over once it has moved a little`() {
+        val s = session()
+        s.touchDown(1L, 100f)            // the older finger
+        s.touchDown(2L, 300f)            // the newest steers
+        s.run(2.5f)
+        assertEquals(300f, s.shipX, 0.5f)
+        s.touchUp(2L)                    // the newest lifts; the ship finishes at 300 and nothing steers
+        assertFalse(s.isSteering)
+        s.touchMove(1L, 100f + PopMetrics.ADOPT_SLOP - 1f)  // a tremor is not enough
+        assertFalse(s.isSteering)
+        s.touchMove(1L, 100f + PopMetrics.ADOPT_SLOP)       // a real drag is
+        assertTrue(s.isPilot(1L))
+        s.run(2.5f)
+        assertEquals("follows the finger that is still dragging", 108f, s.shipX, 0.5f)
+        s.touchMove(1L, 150f); s.run(2f)
+        assertEquals(150f, s.shipX, 0.5f)
+        // and when that one lifts too, the ship stays
+        s.touchUp(1L); s.run(1f)
+        assertEquals(150f, s.shipX, 0.5f)
+        assertFalse(s.isSteering)
+    }
+
+    @Test
+    fun `a resting hand is never adopted, however long it stays and however far the ship is from it`() {
+        val s = session()
+        s.touchDown(1L, 30f)             // a palm lands first and rests
+        s.touchDown(2L, 320f)
+        s.run(2.5f); s.touchUp(2L)
+        repeat(20) { s.touchMove(1L, 30f + (it % 3) * 2f); s.run(0.25f) } // stays put, jitters by a few dp
+        assertFalse(s.isSteering)
+        assertEquals(314f, s.shipX, 0.5f)
+        // creeping slowly is measured from the hand-over, so it never adds up to a capture while it stays within the slop
+        s.touchMove(1L, 30f + PopMetrics.ADOPT_SLOP - 0.5f)
+        assertFalse(s.isSteering)
+    }
+
+    @Test
+    fun `the slop is measured from where the older finger was when the steering finger lifted`() {
+        val s = session()
+        s.touchDown(1L, 100f)
+        s.touchMove(1L, 100f)
+        s.touchDown(2L, 200f)
+        s.touchMove(1L, 150f)            // the older finger wandered while it was not steering
+        s.touchUp(2L)                    // hand-over point for finger 1 is 150
+        s.touchMove(1L, 152f)
+        assertFalse(s.isSteering)
+        s.touchMove(1L, 160f)
+        assertTrue(s.isPilot(1L))
+        s.run(2f)
+        assertEquals(160f, s.shipX, 0.5f)
+    }
+
+    @Test
+    fun `three fingers hand over in turn, newest first`() {
+        val s = session()
+        s.touchDown(1L, 60f); s.touchDown(2L, 120f); s.touchDown(3L, 240f)
+        assertTrue(s.isPilot(3L))
+        s.touchUp(3L)
+        s.touchMove(2L, 140f); s.touchMove(1L, 80f)     // both older fingers move: the first to move far enough takes over
+        assertTrue(s.isPilot(2L))
+        s.touchUp(2L)
+        s.touchMove(1L, 80f + 10f)
+        assertTrue(s.isPilot(1L))
+        s.run(2f)
+        assertEquals(90f, s.shipX, 0.5f)
+    }
+
+    @Test
+    fun `a cancelled steering finger stops the ship, an older finger still down can take over only by moving, and cancel-all forgets everyone`() {
+        val s = session()
+        s.touchDown(1L, 60f); s.touchDown(2L, 320f)
+        s.run(0.1f)
+        val at = s.shipX
+        s.touchCancel(2L)
+        s.run(1f)
+        assertEquals(at, s.shipX, 0f)
+        assertFalse(s.isSteering)
+        s.touchMove(1L, 61f); assertFalse(s.isSteering)
+        s.touchMove(1L, 80f); assertTrue(s.isPilot(1L))
+        s.touchCancelAll()
+        s.touchMove(1L, 200f)            // forgotten: a finger that is not known to be down cannot steer
+        assertFalse(s.isSteering)
+        // a finger that was never seen landing (it landed on home) cannot steer by moving
+        val t = session()
+        t.touchMove(5L, 300f)
+        assertFalse(t.isSteering)
+    }
+
+    @Test
+    fun `more fingers than a hand never break the rule`() {
+        val s = session()
+        for (id in 0L until 25L) s.touchDown(id, 20f + id * 10f)
+        assertTrue(s.isPilot(24L))
+        for (id in 24L downTo 0L) { s.touchUp(id); s.touchMove(id - 1, 100f + id) }
+        s.run(2f)
+        assertTrue(s.shipX in 46f..314f)
+    }
+
+    @Test
+    fun `the pointer layer hands over the same way`() {
+        val ui = PopUi(session())
+        val s = ui.session
+        fun down(id: Long, x: Float) = ui.onPointer(id, x, 400f, pressed = true, previousPressed = false, consumed = false)
+        fun move(id: Long, x: Float) = ui.onPointer(id, x, 400f, pressed = true, previousPressed = true, consumed = false)
+        fun up(id: Long, x: Float) = ui.onPointer(id, x, 400f, pressed = false, previousPressed = true, consumed = false)
+        down(1L, 100f); down(2L, 300f)
+        assertEquals(PopUi.Took.NOTHING, move(1L, 105f))       // the older finger is not steering
+        assertEquals(PopUi.Took.CHANGED, up(2L, 300f))
+        assertEquals(PopUi.Took.NOTHING, move(1L, 106f))       // resting: still not
+        assertEquals(PopUi.Took.FOLLOWED, move(1L, 130f))      // dragging: it steers now
+        s.run(2.5f)
+        assertEquals(130f, s.shipX, 0.5f)
+        assertEquals(PopUi.Took.NOTHING, up(9L, 10f))           // a finger that never steered lifting changes nothing
+        // a finger that landed on home never enters the picture
+        assertEquals(PopUi.Took.NOTHING, ui.onPointer(5L, 40f, 40f, pressed = true, previousPressed = false, consumed = false))
+        assertEquals(PopUi.Took.NOTHING, move(5L, 200f))
     }
 
     @Test

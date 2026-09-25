@@ -370,27 +370,65 @@ class PopEffectsTest {
     }
 
     @Test
-    fun `the wave takes about 1_5 seconds to cross and only pops when 3 or more targets are on screen`() {
+    fun `the wave takes about 1_5 seconds to cross and pops when even one ordinary target is on screen`() {
+        // no target at all: it glitters and pops nothing
+        val e = bare(); e.holdFireForTest = true
+        e.arriveForTest(GiftKind.WAVE)
+        assertEquals(1.5f, untilTrue(e, 3f) { !it.waveActive }, 0.05f)
+        assertEquals(0, e.pops)
+        // one ordinary target is enough
         val s = bare(); s.holdFireForTest = true
         s.addTargetForTest(TargetKind.ROUND, 100f, 300f, 90f)
-        s.addTargetForTest(TargetKind.ROUND, 250f, 200f, 90f)
         s.arriveForTest(GiftKind.WAVE)
         val took = untilTrue(s, 3f) { !it.waveActive }
         assertEquals(1.5f, took, 0.05f)
-        assertEquals("two targets: it glitters and pops nothing", 0, s.pops)
-        assertEquals(2, s.targetCount)
-        // exactly three is enough
-        val t = bare(); t.holdFireForTest = true
-        repeat(3) { t.addTargetForTest(TargetKind.ROUND, 80f + 100f * it, 200f + 60f * it, 90f) }
-        t.arriveForTest(GiftKind.WAVE); t.run(1.8f)
-        assertEquals(3, t.pops)
-        // the count is taken when the gift arrives, not later
+        assertEquals(1, s.pops)
+        assertEquals(0, s.targetCount)
+        // two, and three, all pop
+        for (n in 2..3) {
+            val t = bare(); t.holdFireForTest = true
+            repeat(n) { t.addTargetForTest(TargetKind.ROUND, 80f + 100f * it, 200f + 60f * it, 90f) }
+            t.arriveForTest(GiftKind.WAVE); t.run(1.8f)
+            assertEquals(n, t.pops)
+        }
+    }
+
+    @Test
+    fun `carriers do not count for the wave, and it never pops them`() {
+        // carriers alone: nothing to pop, so it only glitters
+        val c = bare(); c.holdFireForTest = true
+        val carriers = listOf(
+            c.addTargetForTest(TargetKind.ROUND, 100f, 300f, 100f, gift = GiftKind.TRIPLE),
+            c.addTargetForTest(TargetKind.OVAL, 250f, 200f, 100f, gift = GiftKind.SLOW),
+        )
+        c.arriveForTest(GiftKind.WAVE); c.run(1.8f)
+        assertEquals(0, c.pops)
+        assertTrue(carriers.all { k -> c.targets().any { it === k } })
+        // one ordinary next to a carrier: the ordinary one pops, the carrier waits
+        val s = bare(); s.holdFireForTest = true
+        val carrier = s.addTargetForTest(TargetKind.ROUND, 100f, 300f, 100f, gift = GiftKind.BIG)
+        s.addTargetForTest(TargetKind.ROUND, 250f, 200f, 90f)
+        s.arriveForTest(GiftKind.WAVE); s.run(1.8f)
+        assertEquals(1, s.pops)
+        assertTrue(s.targets().any { it === carrier })
+        assertNull(s.gift)
+    }
+
+    @Test
+    fun `whether the wave pops is decided when the gift arrives`() {
+        // nothing on screen at arrival: a target that comes later is left alone
+        val s = bare(); s.holdFireForTest = true
+        s.arriveForTest(GiftKind.WAVE)
+        s.addTargetForTest(TargetKind.ROUND, 180f, 300f, 90f)
+        s.run(1.8f)
+        assertEquals(0, s.pops)
+        // one at arrival: another that appears meanwhile is popped as the wave reaches it
         val u = bare(); u.holdFireForTest = true
-        u.addTargetForTest(TargetKind.ROUND, 80f, 200f, 90f); u.addTargetForTest(TargetKind.ROUND, 180f, 260f, 90f)
+        u.addTargetForTest(TargetKind.ROUND, 80f, 400f, 90f)
         u.arriveForTest(GiftKind.WAVE)
-        u.addTargetForTest(TargetKind.ROUND, 280f, 300f, 90f)
+        u.addTargetForTest(TargetKind.ROUND, 280f, 100f, 90f)
         u.run(1.8f)
-        assertEquals(0, u.pops)
+        assertEquals(2, u.pops)
     }
 
     @Test

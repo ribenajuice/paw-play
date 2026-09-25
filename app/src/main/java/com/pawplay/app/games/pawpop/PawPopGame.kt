@@ -22,6 +22,8 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.scale
@@ -61,13 +63,24 @@ internal fun PopScene(session: PopSession, onExit: () -> Unit) {
         val height = maxHeight.value
         SideEffect { session.setArea(width, height) } // a side effect, not a remember: nothing here may return Unit into remember
 
-        // The sky is still, so it is drawn once (it reads no state) and only again if the play area changes size.
-        Canvas(Modifier.fillMaxSize()) { scale(density, Offset.Zero) { drawSky(width, height) } }
+        // The sky is still, so it is its own layer with its gradient made once (in `drawWithCache`): the moving scene
+        // above it redraws every frame, and this layer's recorded drawing is reused as it is, not run again.
+        Box(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer()
+                .drawWithCache {
+                    val brush = skyBrush(size.height / density)
+                    onDrawBehind { scale(density, Offset.Zero) { drawSky(width, height, brush) } }
+                },
+        )
 
         // The game never rests: a frame every frame, for as long as the screen is here. After the app was in the
-        // background the first frame is one short step (the session caps a step at 50ms).
+        // background the first frame is one short step (the session caps a step at 50ms). The frame callback is made
+        // once, not on every turn of the loop.
         LaunchedEffect(ui) {
-            while (true) withFrameNanos { ui.onFrame(it) }
+            val tick: (Long) -> Unit = { ui.onFrame(it) }
+            while (true) withFrameNanos(tick)
         }
 
         Canvas(Modifier.fillMaxSize()) {

@@ -63,6 +63,34 @@ private val Paper95 = PopPaper.copy(alpha = 0.95f)
 /** One paint for every group-opacity layer (a fading target, a pop, a ghost gift). Drawing is single-threaded. */
 internal val LayerPaint = Paint()
 
+/**
+ * Layer bounds for [withGroupAlpha] without making a new `Rect` every frame: the box is snapped to a grid of 8dp and
+ * remembered in a small ring, so a target drifting across the screen reuses one every few frames. Always at least
+ * [reach] dp each side of the point asked for.
+ */
+internal object LayerBounds {
+    private const val SLOTS = 64
+    private val keys = IntArray(SLOTS) { -1 }
+    private val rects = arrayOfNulls<Rect>(SLOTS)
+    private var next = 0
+
+    fun around(cx: Float, cy: Float, reach: Float): Rect {
+        val qx = ((cx + 128f) / 8f).toInt().coerceIn(0, 1023)
+        val qy = ((cy + 128f) / 8f).toInt().coerceIn(0, 1023)
+        val qr = kotlin.math.ceil(reach / 8f).toInt().coerceIn(0, 255)
+        val key = qx or (qy shl 10) or (qr shl 20)
+        for (i in 0 until SLOTS) if (keys[i] == key) return rects[i]!!
+        val half = qr * 8f + 8f // the snapped centre is at most 4dp from the real one
+        val x = qx * 8f - 128f + 4f
+        val y = qy * 8f - 128f + 4f
+        val r = Rect(x - half, y - half, x + half, y + half)
+        keys[next] = key
+        rects[next] = r
+        next = (next + 1) % SLOTS
+        return r
+    }
+}
+
 /** Draws [block] as one picture at [alpha] (a plain draw when it is opaque, so the common frame costs nothing extra). */
 internal inline fun DrawScope.withGroupAlpha(alpha: Float, cx: Float, cy: Float, reach: Float, block: DrawScope.() -> Unit) {
     if (alpha >= 0.995f) {
@@ -71,7 +99,7 @@ internal inline fun DrawScope.withGroupAlpha(alpha: Float, cx: Float, cy: Float,
     }
     drawIntoCanvas { c ->
         LayerPaint.alpha = alpha
-        c.saveLayer(Rect(cx - reach, cy - reach, cx + reach, cy + reach), LayerPaint)
+        c.saveLayer(LayerBounds.around(cx, cy, reach), LayerPaint)
     }
     block()
     drawIntoCanvas { it.restore() }
@@ -380,6 +408,7 @@ private val FlamePath = svg("M50,78 C41,86 44,94 50,100 C56,94 59,86 50,78Z")
 private val FlameCore = svg("M50,81 C46,86 47,91 50,95 C53,91 54,86 50,81Z")
 private val ShipRim = Stroke(1.6f / 0.88f, join = StrokeJoin.Round)
 private val ShipRimInk = InkColor.copy(alpha = 0.4f)
+private val WindowRing = Stroke(3f)
 private val WindowClip = Path().apply { addOval(Rect(Offset(50f, 48f) - Offset(14f, 14f), Size(28f, 28f))) }
 private val FoxEarsShip = listOf(
     Path().apply { moveTo(20f, 30f); lineTo(27f, 8f); lineTo(35f, 28f); close() },
@@ -403,7 +432,7 @@ internal fun DrawScope.drawShip(cx: Float, cy: Float, flame: Float) {
             }
             drawPath(ShipBody, ShipRimInk, style = ShipRim)
             drawCircle(PopWindow, 16f, Offset(50f, 48f))
-            drawCircle(Color.White, 16f, Offset(50f, 48f), style = Stroke(3f))
+            drawCircle(Color.White, 16f, Offset(50f, 48f), style = WindowRing)
             drawCircle(ShipRimInk, 16f, Offset(50f, 48f), style = ShipRim)
             clipPath(WindowClip) {
                 translate(35f, 34f) {

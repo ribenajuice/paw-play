@@ -14,6 +14,8 @@ object PopMetrics {
     const val SHIP_TOP_SPEED = 1.5f      // screen widths per second
     const val SHIP_EASE = 7f             // speed = distance * this, so it slows softly on arrival
     const val SHIP_SNAP = 0.25f          // closer than this (dp) and it is simply there
+    const val MAX_POINTERS = 10          // fingers remembered at once
+    const val ADOPT_SLOP = 8f            // an older finger takes over steering only after moving this far (dp)
 
     // ---- stars
     const val FIRE_EVERY = 0.4f
@@ -50,7 +52,7 @@ object PopMetrics {
     const val SLOW_SECONDS = 8f
     const val SLOW_FACTOR = 0.5f
     const val WAVE_SECONDS = 1.5f
-    const val WAVE_MIN_TARGETS = 3
+    const val WAVE_MIN_ORDINARY = 1     // the wave pops only if at least this many ordinary (non-carrier) targets are on screen as it arrives
     const val RIBBON_HALF_WIDTH = 28f
     const val RIBBON_GROW = 1200f        // dp per second, from the nose
     const val BREATH_SECONDS = 2f        // the glow breathes for this long before it is over
@@ -110,10 +112,10 @@ object PopRamp {
 
     val stages: List<PopStage> = listOf(
         PopStage(1, 0, 3.5f, 0.07f, 4, round, intArrayOf(0, 2, 4), 104, 112, 16f, 0f),
-        PopStage(2, 10, 3.0f, 0.08f, 5, withOval, intArrayOf(0, 1, 2, 4, 5), 96, 104, 16f, 0f),
-        PopStage(3, 25, 2.5f, 0.09f, 6, withHeartMoon, intArrayOf(0, 1, 2, 3, 4, 5), 96, 104, 16f, 0f),
-        PopStage(4, 45, 2.0f, 0.10f, 7, all, intArrayOf(0, 1, 2, 3, 4, 5), 88, 104, 16f, 0f),
-        PopStage(5, 70, 1.7f, 0.11f, 8, all, intArrayOf(0, 1, 2, 3, 4, 5), 88, 104, 24f, 0.2f),
+        PopStage(2, 24, 3.0f, 0.08f, 5, withOval, intArrayOf(0, 1, 2, 4, 5), 96, 104, 16f, 0f),
+        PopStage(3, 60, 2.5f, 0.09f, 6, withHeartMoon, intArrayOf(0, 1, 2, 3, 4, 5), 96, 104, 16f, 0f),
+        PopStage(4, 108, 2.0f, 0.10f, 7, all, intArrayOf(0, 1, 2, 3, 4, 5), 88, 104, 16f, 0f),
+        PopStage(5, 165, 1.7f, 0.11f, 8, all, intArrayOf(0, 1, 2, 3, 4, 5), 88, 104, 24f, 0.2f),
     )
 
     fun stageFor(pops: Int): PopStage {

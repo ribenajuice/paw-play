@@ -34,9 +34,11 @@ private val DotRefs = arrayOf(
 private val CloudWhite = Color.White.copy(alpha = 0.45f)
 private val DotWhite = Color.White.copy(alpha = 0.8f)
 
+internal fun skyBrush(h: Float): Brush = Brush.verticalGradient(listOf(PopSkyTop, PopSkyBottom), startY = 0f, endY = h)
+
 /** Pale-blue sky top to bottom with six clouds and nine dots, placed as fractions of the play area. Nothing in it moves. */
-internal fun DrawScope.drawSky(w: Float, h: Float) {
-    drawRect(Brush.verticalGradient(listOf(PopSkyTop, PopSkyBottom), startY = 0f, endY = h), Offset.Zero, Size(w, h))
+internal fun DrawScope.drawSky(w: Float, h: Float, brush: Brush) {
+    drawRect(brush, Offset.Zero, Size(w, h))
     for (ci in CloudRefs.indices) {
         val c = CloudRefs[ci]
         val x = c[0] / 360f * w
@@ -79,17 +81,17 @@ internal fun easeOut(k: Float): Float {
 
 internal fun DrawScope.drawScene(ui: PopUi) {
     val s = ui.session
-    val t = s.time.toFloat()
+    val flame = s.wrapped(1.0)
     val slow = s.slowLeft > 0f
 
     // Targets, oldest first: two swaying targets that overlap simply pass over each other. Misses fade here, behind the ship.
     for (i in 0 until s.targetCount) {
         val tg = s.target(i)
-        drawTarget(tg.kind, tg.colour, tg.critter, tg.size, tg.x, tg.y, alpha = tg.alpha, halo = slow, gift = tg.gift, giftT = t + tg.phase)
+        drawTarget(tg.kind, tg.colour, tg.critter, tg.size, tg.x, tg.y, alpha = tg.alpha, halo = slow, gift = tg.gift, giftT = s.wrapped(1.6) + tg.phase)
     }
 
-    if (s.waveActive) drawWave(s, t)
-    if (s.starEffect == GiftKind.RIBBON) drawRibbon(s, t)
+    if (s.waveActive) drawWave(s)
+    if (s.starEffect == GiftKind.RIBBON) drawRibbon(s)
 
     for (i in 0 until s.starCount) {
         val st = s.stars[i]
@@ -100,7 +102,7 @@ internal fun DrawScope.drawScene(ui: PopUi) {
     val cy = s.shipCentreY
     if (slow) drawGlow(s.shipX, cy, PopLilac, 76f, glowBreath(s.slowLeft))
     if (s.starEffect != null) drawGlow(s.shipX, cy, PawSunshine, 62f, glowBreath(s.starEffectLeft))
-    drawShip(s.shipX, cy, 1f + 0.08f * sin(TwoPiF * t))
+    drawShip(s.shipX, cy, 1f + 0.08f * sin(TwoPiF * flame))
 
     val g = s.gift
     if (g != null) {
@@ -129,36 +131,41 @@ private fun DrawScope.bigStarTrail(st: PopStar) {
     drawStar(st.x + 3 * dx, st.y + 102f, PopMetrics.BIG_STAR_RADIUS * 0.32f, st.degrees, 0.09f)
 }
 
-private fun ribbonOff(y: Float, t: Float): Float = 5f * sin((y / 140f + 0.35f * t) * TwoPiF)
+/** Sideways sway of the ribbon at height [y]; [phase] is 0 until 1 and comes from the wrapped clock. */
+private fun ribbonOff(y: Float, phase: Float): Float = 5f * sin((y / 140f + phase) * TwoPiF)
 
-private fun DrawScope.ribbonBand(shipX: Float, n: Int, t: Float, a: Float, b: Float, colour: Color, alpha: Float) {
+private fun DrawScope.ribbonBand(shipX: Float, n: Int, phase: Float, a: Float, b: Float, colour: Color, alpha: Float) {
     RibbonPath.rewind()
     for (i in 0 until n) {
         val y = RibbonOffsets[i]
-        val x = shipX + a + ribbonOff(y, t)
+        val x = shipX + a + ribbonOff(y, phase)
         if (i == 0) RibbonPath.moveTo(x, y) else RibbonPath.lineTo(x, y)
     }
     for (i in n - 1 downTo 0) {
         val y = RibbonOffsets[i]
-        RibbonPath.lineTo(shipX + b + ribbonOff(y, t), y)
+        RibbonPath.lineTo(shipX + b + ribbonOff(y, phase), y)
     }
     RibbonPath.close()
     drawPath(RibbonPath, colour, alpha)
 }
 
 /** A column 56dp wide of five stripes on a white band, swaying a few dp, from the nose to its grown height. */
-private fun DrawScope.drawRibbon(s: PopSession, t: Float) {
+private fun DrawScope.drawRibbon(s: PopSession) {
+    val phase = s.wrapped(1.0 / 0.35) * 0.35f
     val top = s.nose - s.ribbonLength
+    val yb = s.nose + 10f
+    // a point every 10dp, or fewer on a very tall play area so the buffer always reaches the top
+    val step = maxOf(10f, (yb - top) / (RibbonOffsets.size - 2))
     var n = 0
-    var y = s.nose + 10f
+    var y = yb
     while (y > top && n < RibbonOffsets.size - 1) {
         RibbonOffsets[n++] = y
-        y -= 10f
+        y -= step
     }
     RibbonOffsets[n++] = top
-    ribbonBand(s.shipX, n, t, -31f, 31f, RibbonBand, 1f)
+    ribbonBand(s.shipX, n, phase, -31f, 31f, RibbonBand, 1f)
     val w = 56f / 5f
-    for (i in 0 until 5) ribbonBand(s.shipX, n, t, -28f + i * w, -28f + (i + 1) * w, RibbonStripes[i], 0.92f)
+    for (i in 0 until 5) ribbonBand(s.shipX, n, phase, -28f + i * w, -28f + (i + 1) * w, RibbonStripes[i], 0.92f)
 }
 
 private fun DrawScope.waveLine(width: Float, y0: Float, ph: Float, stroke: Stroke, colour: Color) {
@@ -174,9 +181,9 @@ private fun DrawScope.waveLine(width: Float, y0: Float, ph: Float, stroke: Strok
 }
 
 /** The sparkle wave: a wavy band the width of the screen rising past the top, three round polylines, ten sparkles riding it. */
-private fun DrawScope.drawWave(s: PopSession, t: Float) {
+private fun DrawScope.drawWave(s: PopSession) {
     val y0 = s.waveY
-    val ph = t * 3f
+    val ph = s.wrapped(2.0 * PI / 3.0) * 3f
     waveLine(s.width, y0, ph, WaveHalo, WaveHaloColour)
     waveLine(s.width, y0, ph, WaveMid, WaveMidColour)
     waveLine(s.width, y0, ph, WaveCore, WaveCoreColour)

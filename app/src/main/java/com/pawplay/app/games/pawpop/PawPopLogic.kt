@@ -19,9 +19,9 @@ class PopTarget(
     val critter: Int,
     /** Nominal width in dp (72 to 112). */
     val size: Float,
-    /** Sway centre and amplitude (dp), and phase (radians): `x = x0 + amp * sin(2 pi t / 3 + phase)`. */
-    val x0: Float,
-    val amp: Float,
+    /** Sway centre and amplitude (dp), and phase (radians): `x = x0 + amp * sin(2 pi t / 3 + phase)`. Both follow the play area if it changes size. */
+    var x0: Float,
+    var amp: Float,
     val phase: Float,
     /** The gift inside, if this is a carrier. */
     val gift: GiftKind?,
@@ -147,29 +147,85 @@ class PopSession(
     private fun shipRange(): Float = min(PopMetrics.SHIP_REACH + PopMetrics.SIDE_MARGIN, width / 2f)
     private fun clampShip(x: Float): Float = x.coerceIn(shipRange(), width - shipRange())
 
-    /** A finger landed anywhere: it steers now, and any finger that was steering before it no longer does. */
+    // Fingers that are down, in the order they landed (fixed arrays, no allocation): where each is now, and where it was when
+    // the steering finger last lifted or was cancelled, which is the place a hand-over is measured from.
+    private val padIds = LongArray(PopMetrics.MAX_POINTERS)
+    private val padX = FloatArray(PopMetrics.MAX_POINTERS)
+    private val padRef = FloatArray(PopMetrics.MAX_POINTERS)
+    private var padCount = 0
+
+    private fun padIndex(id: Long): Int {
+        for (i in 0 until padCount) if (padIds[i] == id) return i
+        return -1
+    }
+
+    private fun padRemove(i: Int) {
+        for (k in i until padCount - 1) { padIds[k] = padIds[k + 1]; padX[k] = padX[k + 1]; padRef[k] = padRef[k + 1] }
+        padCount--
+    }
+
+    private fun padResetRefs() { for (i in 0 until padCount) padRef[i] = padX[i] }
+
+    /**
+     * A finger landed anywhere: it steers now, and any finger that was steering before it no longer does (the newest
+     * finger steers). An older finger that is still down is remembered, see [touchMove].
+     */
     fun touchDown(id: Long, x: Float) {
         if (!x.isFinite()) return
+        val old = padIndex(id)
+        if (old >= 0) padRemove(old)
+        if (padCount == PopMetrics.MAX_POINTERS) padRemove(0) // more fingers than a hand: forget the oldest
+        padIds[padCount] = id; padX[padCount] = x; padRef[padCount] = x; padCount++
         pilot = id
         aimX = clampShip(x)
     }
 
+    /**
+     * A finger moved. The steering finger steers. An older finger still down never steers by resting (a palm that
+     * landed first and stays cannot capture the ship), but once nothing is steering it takes over as soon as it has moved
+     * [PopMetrics.ADOPT_SLOP] dp from where it was when the steering finger lifted: a finger that keeps dragging carries
+     * on at once, a resting hand does not.
+     */
     fun touchMove(id: Long, x: Float) {
-        if (id == pilot && x.isFinite()) aimX = clampShip(x)
+        if (!x.isFinite()) return
+        val i = padIndex(id)
+        if (i < 0) return // never seen landing: it is not ours to follow
+        padX[i] = x
+        if (id == pilot) {
+            aimX = clampShip(x)
+        } else if (pilot == NO_POINTER && abs(x - padRef[i]) >= PopMetrics.ADOPT_SLOP) {
+            pilot = id
+            aimX = clampShip(x)
+        }
     }
 
-    /** The steering finger lifted: the ship finishes gliding to where it was, then stays put until the next new touch. */
+    /** A finger lifted. If it was steering, the ship finishes gliding to where it was and then stays put (an older finger that is still down takes over only by moving, see [touchMove]). */
     fun touchUp(id: Long) {
-        if (id == pilot) pilot = NO_POINTER
+        val i = padIndex(id)
+        if (i >= 0) padRemove(i)
+        if (id == pilot) {
+            pilot = NO_POINTER
+            padResetRefs()
+        }
     }
 
-    /** The steering finger's touch was cancelled (a system gesture, an app switch): the ship just stays where it is. */
+    /** A finger's touch was cancelled (a system gesture, an app switch): if it was steering, the ship just stays where it is. */
     fun touchCancel(id: Long) {
-        if (id == pilot) touchCancelAll()
+        val i = padIndex(id)
+        if (i >= 0) padRemove(i)
+        if (id == pilot) {
+            pilot = NO_POINTER
+            aimX = shipX
+            padResetRefs()
+        }
     }
 
-    /** Nothing is steering any more (every finger is up, or the touch layer is going away). A ship still gliding to where a finger lifted carries on: only a steering finger that vanished stops it. */
+    /**
+     * Every finger is up, or the touch layer is going away: nothing steers and nothing is remembered. A ship still gliding
+     * to where the last finger lifted carries on; only a steering finger that vanished without a lift stops it.
+     */
     fun touchCancelAll() {
+        padCount = 0
         if (pilot == NO_POINTER) return
         pilot = NO_POINTER
         aimX = shipX
@@ -282,9 +338,15 @@ class PopSession(
         shipX = clampShip(shipX)
     }
 
+    /** The sway's angle now, wrapped each turn (in double) so a long session never loses float precision. */
+    private fun swayPhaseNow(): Float = (time % PopMetrics.SWAY_SECONDS).toFloat() * (2f * PI.toFloat() / PopMetrics.SWAY_SECONDS)
+
+    /** [time] wrapped into 0 until [period] (done in double), for drawing phases: a long session never loses float precision. */
+    fun wrapped(period: Double): Float = (time % period).toFloat()
+
     private fun moveTargets(dt: Float) {
         val drift = stage.drift * height * (if (slowLeft > 0f) PopMetrics.SLOW_FACTOR else 1f)
-        val swayPhase = (time % PopMetrics.SWAY_SECONDS).toFloat() * (2f * PI.toFloat() / PopMetrics.SWAY_SECONDS)
+        val swayPhase = swayPhaseNow()
         var i = 0
         while (i < targetList.size) {
             val t = targetList[i]
@@ -311,6 +373,13 @@ class PopSession(
         spawnIn = if (spawnTarget(st)) st.spawnEvery else PopMetrics.SPAWN_RETRY
     }
 
+    /** Targets on screen that are not carriers (the wave skips carriers, so they do not count for it). */
+    private fun ordinaryOnScreen(): Int {
+        var n = 0
+        for (i in 0 until targetList.size) if (!targetList[i].isCarrier) n++
+        return n
+    }
+
     private fun carrierOnScreen(): Boolean {
         for (i in 0 until targetList.size) if (targetList[i].isCarrier) return true
         return false
@@ -334,7 +403,7 @@ class PopSession(
         val s = size.toFloat()
         val amp = st.sway
         val phase = random.nextFloat() * 2f * PI.toFloat()
-        val sway = sin((time % PopMetrics.SWAY_SECONDS).toFloat() * (2f * PI.toFloat() / PopMetrics.SWAY_SECONDS) + phase)
+        val sway = sin(swayPhaseNow() + phase)
         val y = if (firstTarget) PopMetrics.FIRST_TARGET_TOP - kind.top * s else -kind.top * s - 2f
         val lo = s / 2f + amp + PopMetrics.EDGE_CLEAR
         val hi = width - s / 2f - amp - PopMetrics.EDGE_CLEAR
@@ -502,7 +571,7 @@ class PopSession(
                 waveActive = true
                 waveAge = 0f
                 waveY = nose + 20f
-                wavePops = targetList.size >= PopMetrics.WAVE_MIN_TARGETS // only when 3 or more are on screen right now
+                wavePops = ordinaryOnScreen() >= PopMetrics.WAVE_MIN_ORDINARY // it pops only if at least one ordinary target is on screen as the gift arrives
                 if (waveSparkly) sparkleCount -= PopMetrics.WAVE_SPARKLES
                 waveSparkly = sparkleCount + PopMetrics.WAVE_SPARKLES <= PopMetrics.MAX_SPARKLES
                 if (waveSparkly) sparkleCount += PopMetrics.WAVE_SPARKLES
@@ -578,7 +647,16 @@ class PopSession(
         shipX *= fx0
         aimX *= fx0
         for (i in 0 until starCount) { stars[i].x *= fx0; stars[i].y *= fy0 }
-        for (i in 0 until targetList.size) { val t = targetList[i]; t.y *= fy0; t.x *= fx0 }
+        for (i in 0 until targetList.size) { // a target keeps its place as a fraction of the width, and its whole sway stays on screen
+            val t = targetList[i]
+            t.y *= fy0
+            t.x0 *= fx0
+            val room = max(0f, (newWidth - t.size) / 2f - PopMetrics.EDGE_CLEAR)
+            t.amp = min(t.amp, room)
+            val lo = t.size / 2f + PopMetrics.EDGE_CLEAR + t.amp
+            t.x0 = if (newWidth - lo >= lo) t.x0.coerceIn(lo, newWidth - lo) else newWidth / 2f
+            t.x = t.x0 + t.amp * sin(swayPhaseNow() + t.phase)
+        }
         for (i in 0 until fxCount) { fx[i].x *= fx0; fx[i].y *= fy0 }
         gift?.let { it.x0 *= fx0; it.y0 *= fy0 }
         waveY *= fy0

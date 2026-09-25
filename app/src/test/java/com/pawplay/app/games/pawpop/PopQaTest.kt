@@ -4,7 +4,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
-import org.junit.Ignore
 import org.junit.Test
 import kotlin.math.abs
 import kotlin.math.floor
@@ -21,23 +20,35 @@ class PopQaTest {
 
     @Test
     fun `newest finger steers whatever order fingers land, move and lift in, with ids reused`() {
+        // reference model of the rule: newest landing steers; when it lifts nothing steers; an older finger still down takes
+        // over only by moving PopMetrics.ADOPT_SLOP from where it was when the steering finger lifted
         for (seed in 1..80) {
             val r = Random(seed)
             val s = session(seed)
             val w = s.width
             var pilot: Long? = null
             var aim = s.shipX
+            val down = LinkedHashMap<Long, FloatArray>() // id -> [x now, x at hand-over]
+            fun resetRefs() { for (v in down.values) v[1] = v[0] }
             val dts = floatArrayOf(FRAME, 1f / 120f, 0.05f, 0.2f)
             repeat(700) {
                 val id = r.nextInt(4).toLong()
                 val x = if (r.nextInt(25) == 0) Float.NaN else r.nextFloat() * w * 1.5f - 0.25f * w
                 val ok = x.isFinite()
                 when (r.nextInt(8)) {
-                    0, 1 -> { s.touchDown(id, x); if (ok) { pilot = id; aim = x.coerceIn(46f, w - 46f) } }
-                    2, 3 -> { s.touchMove(id, x); if (ok && pilot == id) aim = x.coerceIn(46f, w - 46f) }
-                    4 -> { s.touchUp(id); if (pilot == id) pilot = null }
-                    5 -> { s.touchCancel(id); if (pilot == id) { pilot = null; aim = s.shipX } }
-                    6 -> { if (r.nextInt(6) == 0) { s.touchCancelAll(); if (pilot != null) { pilot = null; aim = s.shipX } } }
+                    0, 1 -> { s.touchDown(id, x); if (ok) { down.remove(id); down[id] = floatArrayOf(x, x); pilot = id; aim = x.coerceIn(46f, w - 46f) } }
+                    2, 3 -> {
+                        s.touchMove(id, x)
+                        val v = down[id]
+                        if (ok && v != null) {
+                            v[0] = x
+                            if (pilot == id) aim = x.coerceIn(46f, w - 46f)
+                            else if (pilot == null && abs(x - v[1]) >= PopMetrics.ADOPT_SLOP) { pilot = id; aim = x.coerceIn(46f, w - 46f) }
+                        }
+                    }
+                    4 -> { s.touchUp(id); down.remove(id); if (pilot == id) { pilot = null; resetRefs() } }
+                    5 -> { s.touchCancel(id); down.remove(id); if (pilot == id) { pilot = null; aim = s.shipX; resetRefs() } }
+                    6 -> { if (r.nextInt(6) == 0) { s.touchCancelAll(); down.clear(); if (pilot != null) { pilot = null; aim = s.shipX } } }
                     else -> {}
                 }
                 for (k in 0L..3L) assertEquals("seed $seed: is $k the pilot", pilot == k, s.isPilot(k))
@@ -56,7 +67,7 @@ class PopQaTest {
     }
 
     @Test
-    fun `a resting palm never captures the ship, however it moves, lifts or lands again`() {
+    fun `a resting palm never captures the ship, however it jitters, lifts or lands again`() {
         val s = session()
         val ui = PopUi(s)
         fun down(id: Long, x: Float, y: Float = 500f) = ui.onPointer(id, x, y, pressed = true, previousPressed = false, consumed = false)
@@ -70,10 +81,10 @@ class PopQaTest {
         assertEquals(300f, s.shipX, 0.5f)
         up(8, 300f)                  // the fingertip lifts: the ship stays, the palm (still down) does not take over
         s.run(0.5f)
-        move(7, 30f); s.run(0.5f); move(7, 200f); s.run(1f)
-        assertEquals("palm slid while resting", 300f, s.shipX, 0.5f)
+        move(7, 24f); s.run(0.3f); move(7, 17f); s.run(0.3f); move(7, 26f); s.run(1f)   // jitter of a resting hand: under the slop
+        assertEquals("palm resting", 300f, s.shipX, 0.5f)
         assertFalse(s.isSteering)
-        up(7, 200f)
+        up(7, 26f)
         down(7, 90f)                 // it lifts and lands again: a new touch steers
         s.run(2f)
         assertEquals(90f, s.shipX, 0.5f)
@@ -193,7 +204,7 @@ class PopQaTest {
 
     @Test
     fun `each stage begins on exactly the pop that the table says, and the next frame drifts at the new speed`() {
-        val starts = intArrayOf(10, 25, 45, 70)
+        val starts = intArrayOf(24, 60, 108, 165)
         for ((i, b) in starts.withIndex()) {
             val s = session(3, b - 1)
             s.holdSpawnForTest = true
@@ -310,7 +321,7 @@ class PopQaTest {
     @Test
     fun `the stage-5 sky of a long session stays inside every limit`() {
         for (mode in 0..2) {
-            val o = soak(7 + mode, 360f, 740f, 600f, mode, startPops = 70)
+            val o = soak(7 + mode, 360f, 740f, 600f, mode, startPops = 165)
             assertEquals(5, o.stage)
             assertTrue(o.maxTargets <= 8 && o.maxStars <= 15 && o.maxSparkles <= 60 && o.maxFx <= 16)
         }
@@ -345,9 +356,8 @@ class PopQaTest {
         assertTrue(s.spawned - spawned <= 1 && s.fireTicks - ticks <= 1 && s.starCount <= 2)
     }
 
-    // ------------------------------------------------------------------ known bug (kept out of the green suite)
+    // ------------------------------------------------------------------ the play area changes size (was a known bug)
 
-    @Ignore("QA bug: PopSession.setArea scales a target's x but not its sway centre x0, so the next step snaps it back to the old, unscaled column. Un-ignore to reproduce; it fails today.")
     @Test
     fun `after the play area gets narrower every target is still inside it`() {
         val s = session(1, 0, 400f, 700f)

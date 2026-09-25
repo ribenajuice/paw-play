@@ -5,11 +5,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
 import kotlin.math.sqrt
+import kotlin.random.Random
 
 /** Story 54 (the targets), 56 (misses), 57 (carriers) and 60 (the endless ramp), as tests. */
 class PopRampTest {
 
-    private val startsAt = listOf(0, 10, 25, 45, 70)
+    private val startsAt = listOf(0, 24, 60, 108, 165)
 
     private fun quiet(seed: Int = 1, pops: Int = 0, width: Float = 360f, height: Float = 692f) =
         session(seed, pops, width, height).also { it.holdFireForTest = true }
@@ -19,7 +20,7 @@ class PopRampTest {
     @Test
     fun `the ramp is exactly the PRD table`() {
         val st = PopRamp.stages
-        assertEquals(listOf(0, 10, 25, 45, 70), st.map { it.startsAtPops })
+        assertEquals(listOf(0, 24, 60, 108, 165), st.map { it.startsAtPops })
         assertEquals(listOf(3.5f, 3.0f, 2.5f, 2.0f, 1.7f), st.map { it.spawnEvery })
         assertEquals(listOf(0.07f, 0.08f, 0.09f, 0.10f, 0.11f), st.map { it.drift })
         assertEquals(listOf(4, 5, 6, 7, 8), st.map { it.maxTargets })
@@ -29,9 +30,43 @@ class PopRampTest {
         assertEquals(listOf(3, 5, 6, 6, 6), st.map { it.colours.size })
     }
 
+    /** The five kinds of player the pacing was tuned with, by [mode]; the ship's own shots are the only thing popping anything. */
+    private fun secondsToStage5(mode: Int, seed: Int): Double {
+        val w = 360f; val h = 692f
+        val s = session(seed * 31 + mode, 0, w, h)
+        val r = Random(seed * 7 + mode)
+        var next = 0.0
+        while (s.time < 1500.0 && s.stage.number < 5) {
+            when (mode) {
+                1 -> if (s.time >= next) { next = s.time + 4 + r.nextDouble() * 3; s.touchDown(1, r.nextFloat() * w); s.touchUp(1) }
+                2 -> if (s.time >= next) { next = s.time + 0.5 + r.nextDouble() * 1.5; s.touchDown(1, r.nextFloat() * w) }
+                3 -> if (s.time >= next) { next = s.time + 0.2 + r.nextDouble() * 0.6; s.touchDown(1, r.nextFloat() * w); s.touchUp(1) }
+                4 -> {
+                    var best: PopTarget? = null
+                    for (i in 0 until s.targetCount) { val g = s.target(i); if (g.y < s.nose - 20f && (best == null || g.y > best.y)) best = g }
+                    if (best != null) s.touchDown(1, best.x)
+                }
+            }
+            s.step(FRAME)
+        }
+        return s.time
+    }
+
+    @Test
+    fun `pace of the ramp, a perfect player takes about 3 minutes, a slow toddler about 6 and a child who never touches the screen longer still`() {
+        // modes: 0 never touches, 1 slow toddler, 2 sloppy, 3 busy tapper, 4 perfect aim (medians of 9 seeds, measured 2026-09-25)
+        val median = (0..4).map { m -> (1..9).map { secondsToStage5(m, it) }.sorted()[4] }
+        println("seconds to stage 5 (never touches, toddler, sloppy, busy, perfect): " + median.map { Math.round(it) })
+        assertTrue("perfect aim ${median[4]}", median[4] in 130.0..220.0)
+        assertTrue("busy ${median[3]}", median[3] in 160.0..260.0)
+        assertTrue("slow toddler ${median[1]}", median[1] in 270.0..450.0)
+        assertTrue("never touching is slower than any child who plays: ${median[0]}", median[0] > median[2] + 60 && median[0] > median[3] + 100 && median[0] > median[4] + 150)
+        assertTrue("never touching does not reach stage 5 within 5 minutes: ${median[0]}", median[0] > 300.0)
+    }
+
     @Test
     fun `stage boundaries are counted in hidden pops`() {
-        val expect = mapOf(0 to 1, 9 to 1, 10 to 2, 24 to 2, 25 to 3, 44 to 3, 45 to 4, 69 to 4, 70 to 5, 71 to 5, 100000 to 5)
+        val expect = mapOf(0 to 1, 23 to 1, 24 to 2, 59 to 2, 60 to 3, 107 to 3, 108 to 4, 164 to 4, 165 to 5, 166 to 5, 100000 to 5)
         for ((pops, stage) in expect) assertEquals("pops=$pops", stage, PopRamp.stageFor(pops).number)
     }
 
@@ -39,20 +74,20 @@ class PopRampTest {
     fun `every pop counts, whichever way it happens, and a session starts at stage 1`() {
         assertEquals(1, session().stage.number)
         // a star
-        val a = session(pops = 9); a.holdSpawnForTest = true
+        val a = session(pops = 23); a.holdSpawnForTest = true
         a.addTargetForTest(TargetKind.ROUND, a.shipX, a.nose - 120f)
         a.run(1.5f)
-        assertEquals(10, a.pops); assertEquals(2, a.stage.number)
+        assertEquals(24, a.pops); assertEquals(2, a.stage.number)
         // the ribbon
-        val b = session(pops = 9); b.holdFireForTest = true; b.holdSpawnForTest = true
+        val b = session(pops = 23); b.holdFireForTest = true; b.holdSpawnForTest = true
         b.addTargetForTest(TargetKind.ROUND, b.shipX, b.nose - 120f)
         b.arriveForTest(GiftKind.RIBBON); b.run(1f)
-        assertEquals(10, b.pops)
+        assertEquals(24, b.pops)
         // the wave
-        val c = session(pops = 68); c.holdFireForTest = true; c.holdSpawnForTest = true
+        val c = session(pops = 163); c.holdFireForTest = true; c.holdSpawnForTest = true
         repeat(3) { c.addTargetForTest(TargetKind.ROUND, 100f + 80f * it, 300f + 30f * it) }
         c.arriveForTest(GiftKind.WAVE); c.run(2f)
-        assertEquals(71, c.pops); assertEquals(5, c.stage.number)
+        assertEquals(166, c.pops); assertEquals(5, c.stage.number)
     }
 
     // ------------------------------------------------------------------ drift
@@ -79,7 +114,7 @@ class PopRampTest {
 
     @Test
     fun `targets sway a little from side to side, once every 3 seconds, 16dp and 24dp at the last stage`() {
-        for ((pops, amp) in listOf(0 to 16f, 70 to 24f)) {
+        for ((pops, amp) in listOf(0 to 16f, 165 to 24f)) {
             val s = quiet(pops = pops)
             val seen = Spawns()
             var lo = Float.MAX_VALUE; var hi = -Float.MAX_VALUE
@@ -218,7 +253,7 @@ class PopRampTest {
 
     @Test
     fun `nothing is ever smaller than 72dp or bigger than 112dp`() {
-        val s = quiet(3, pops = 70)
+        val s = quiet(3, pops = 165)
         val seen = Spawns()
         s.run(2000f, 0.05f) { seen.watch(it) }
         assertTrue(seen.seen.all { it.size in 72f..112f })
@@ -347,7 +382,7 @@ class PopRampTest {
 
     @Test
     fun `about one carrier every 25 seconds at the start and every 13 at the cap`() {
-        for ((pops, seconds) in listOf(0 to 25f, 70 to 13f)) {
+        for ((pops, seconds) in listOf(0 to 25f, 165 to 13f)) {
             val s = quiet(7, pops = pops)
             s.run(1500f, 0.05f)
             val every = 1500f / s.carriersMade

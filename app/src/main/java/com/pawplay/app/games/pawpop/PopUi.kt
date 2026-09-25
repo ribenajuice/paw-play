@@ -31,15 +31,19 @@ internal class PopUi(val session: PopSession) {
 
     /**
      * One pointer change from the touch layer. A finger that lands anywhere else steers at once (only its horizontal
-     * position counts) and becomes the newest finger. A change that is already [consumed] when it arrives as an "up"
-     * is how Compose reports a cancelled touch (a system gesture, a notification pull-down, an app switch): it is not
-     * a lift, so the ship simply stays where it is instead of finishing a glide to a stale position.
+     * position counts) and becomes the newest finger. When the steering finger lifts, the ship finishes gliding to where
+     * it was; an older finger still down takes over only by moving (see [PopSession.touchMove]), so a resting palm never
+     * captures the ship but a second finger that keeps dragging carries on. A change that is already [consumed] when it
+     * arrives as an "up" is how Compose reports a cancelled touch (a system gesture, a notification pull-down, an app
+     * switch): it is not a lift, so the ship simply stays where it is instead of finishing a glide to a stale position.
      */
     fun onPointer(id: Long, x: Float, y: Float, pressed: Boolean, previousPressed: Boolean, consumed: Boolean): Took = when {
         pressed && !previousPressed ->
             if (overHome(x, y)) Took.NOTHING else { session.touchDown(id, x); Took.CHANGED }
-        pressed ->
-            if (session.isPilot(id)) { session.touchMove(id, x); Took.FOLLOWED } else Took.NOTHING
+        pressed -> {
+            session.touchMove(id, x) // the session decides whether this finger steers
+            if (session.isPilot(id)) Took.FOLLOWED else Took.NOTHING
+        }
         previousPressed -> {
             val mine = session.isPilot(id)
             if (consumed) session.touchCancel(id) else session.touchUp(id)

@@ -72,7 +72,7 @@ class PopRobustnessTest {
 
     @Test
     fun `nothing on screen ever exceeds its limit, and the counters always agree with what is there`() {
-        val s = session(11, pops = 70)
+        val s = session(11, pops = 165)
         val r = Random(3)
         var giftSeen = false
         s.run(300f) {
@@ -167,6 +167,46 @@ class PopRobustnessTest {
         assertTrue("$most on screen", most <= PopMetrics.MAX_TARGETS)
         assertTrue(s.pops > 0) // whatever drifts through the middle gets popped by the ship's own shots
         assertEquals(180f, s.shipX, 0f)
+    }
+
+    @Test
+    fun `after the play area gets narrower every target, sway included, is still inside it, and keeps its place as a fraction of the width`() {
+        val s = session(1, 0, 400f, 700f); s.holdSpawnForTest = true; s.holdFireForTest = true
+        val a = s.addTargetForTest(TargetKind.ROUND, 340f, 200f, 100f)
+        val b = s.addTargetForTest(TargetKind.OVAL, 60f, 300f, 96f)
+        s.setArea(200f, 700f)
+        s.run(3f) { assertTrue("a at ${a.x}", a.x + a.size / 2 <= 200f + 0.01f && a.x - a.size / 2 >= -0.01f); assertTrue("b at ${b.x}", b.x - b.size / 2 >= -0.01f) }
+        assertTrue(a.x0 in 50f..150f)
+        // and back out again: nothing snaps back to an old column
+        s.setArea(400f, 700f)
+        s.run(1f) { assertTrue(it.target(0).x in 0f..400f) }
+        // targets that keep sway on a narrow area never leave it either
+        val t = session(2, 165, 320f, 568f); t.holdFireForTest = true
+        var n = 0
+        t.run(120f) {
+            if (n++ % 600 == 0) it.setArea(if ((n / 600) % 2 == 0) 320f else 240f, 568f)
+            for (i in 0 until it.targetCount) { val g = it.target(i); assertTrue("x ${g.x} size ${g.size} in ${it.width}", g.x - g.size / 2 >= -0.5f && g.x + g.size / 2 <= it.width + 0.5f) }
+        }
+    }
+
+    @Test
+    fun `layer bounds always hold the box asked for and are reused instead of made every frame`() {
+        val r = Random(2)
+        repeat(3000) {
+            val cx = r.nextFloat() * 500f - 60f; val cy = r.nextFloat() * 900f - 60f; val reach = 20f + r.nextFloat() * 130f
+            val b = LayerBounds.around(cx, cy, reach)
+            assertTrue("box ($cx, $cy) reach $reach in $b", b.left <= cx - reach && b.right >= cx + reach && b.top <= cy - reach && b.bottom >= cy + reach)
+            assertTrue(b.width < 2f * reach + 40f)
+        }
+        val a = LayerBounds.around(100.2f, 200.3f, 60f)
+        assertTrue("the same cell gives the same Rect", a === LayerBounds.around(100.9f, 200.9f, 60f))
+    }
+
+    @Test
+    fun `drawing phases are wrapped so a very long session keeps its precision`() {
+        val s = session(); s.holdSpawnForTest = true; s.holdFireForTest = true
+        repeat(4000) { s.step(0.05f) } // 200 s
+        for (period in listOf(1.0, 1.6, 3.0, 1.0 / 0.35, 2.0 * Math.PI / 3.0)) assertTrue(s.wrapped(period) in 0f..period.toFloat())
     }
 
     @Test
