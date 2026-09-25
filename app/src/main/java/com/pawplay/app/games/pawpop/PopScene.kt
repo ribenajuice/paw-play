@@ -153,8 +153,8 @@ internal fun DrawScope.drawScene(ui: PopUi, belowBank: Path) {
     }
 
     // The wave and the ribbon end at the entry line, where the stars twinkle out, so they never run over the strip.
-    if (s.waveActive) clipRect(0f, PopMetrics.SKY_TOP, s.width, s.height + 10f) { drawWave(s) }
-    if (s.starEffect == GiftKind.RIBBON) clipRect(0f, PopMetrics.SKY_TOP, s.width, s.height + 10f) { drawRibbon(s) }
+    if (s.waveActive) clipRect(0f, s.skyLine, s.width, s.height + 10f) { drawWave(s) }
+    if (s.starEffect == GiftKind.RIBBON) clipRect(0f, s.skyLine, s.width, s.height + 10f) { drawRibbon(s) }
 
     for (i in 0 until s.starCount) {
         val st = s.stars[i]

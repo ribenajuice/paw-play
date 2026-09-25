@@ -17,7 +17,7 @@ class PopRampTest {
 
     /** No shooting and no losing, so only the spawn schedule is watched. */
     private fun quiet(seed: Int = 1, pops: Int = 0, width: Float = 360f, height: Float = 692f) =
-        session(seed, pops, width, height).also { it.holdFireForTest = true; it.holdPawsForTest = true }
+        sessionNoLoss(seed, pops, width, height).also { it.holdFireForTest = true }
 
     // ------------------------------------------------------------------ the table
 

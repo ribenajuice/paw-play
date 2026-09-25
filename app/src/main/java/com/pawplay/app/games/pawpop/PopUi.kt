@@ -11,6 +11,12 @@ internal class PopUi(val session: PopSession, private val onScore: (Int) -> Unit
     /** The frame time, bumped every frame: the drawing reads it, so it redraws every frame (the game never rests). */
     val frame = mutableLongStateOf(0L)
 
+    /**
+     * True while the game still moves and needs another frame: through play and the 0.5s fade-out. Once it is over nothing
+     * animates behind the good-game screen, so the frame loop stops and the scene is left as its last frame drew it.
+     */
+    val active: Boolean get() = session.phase != PopPhase.OVER
+
     private var lastNanos = 0L
     private var lastScore = session.score
 

@@ -31,9 +31,8 @@ class PopPathTest {
     }
 
     private fun watch(seed: Int, pops: Int, seconds: Float, width: Float = 360f, height: Float = 692f, slowAlways: Boolean = false, each: (PopSession, Track) -> Unit = { _, _ -> }): List<Track> {
-        val s = session(seed, pops, width, height)
+        val s = sessionNoLoss(seed, pops, width, height)
         s.holdFireForTest = true
-        s.holdPawsForTest = true
         val tracks = java.util.IdentityHashMap<PopTarget, Track>()
         val order = ArrayList<Track>()
         s.run(seconds) {
@@ -60,8 +59,8 @@ class PopPathTest {
     @Test
     fun `between turns a target moves in a perfectly straight line at constant velocity, never up, never stopping`() {
         for (stage in 0 until 5) for (seed in 1..3) {
-            val s = session(seed, PopRamp.stages[stage].startsAtPops)
-            s.holdFireForTest = true; s.holdPawsForTest = true
+            val s = sessionNoLoss(seed, PopRamp.stages[stage].startsAtPops)
+            s.holdFireForTest = true
             val seen = java.util.IdentityHashMap<PopTarget, FloatArray>() // last vx, vy, turns
             s.run(120f) {
                 for (i in 0 until it.targetCount) {
@@ -160,7 +159,7 @@ class PopPathTest {
 
     @Test
     fun `a target heading for a side edge turns away at it, not through it, and never slides off`() {
-        val s = session(1); s.holdSpawnForTest = true; s.holdFireForTest = true; s.holdPawsForTest = true
+        val s = sessionNoLoss(1); s.holdSpawnForTest = true; s.holdFireForTest = true
         val t = s.addTargetForTest(TargetKind.ROUND, 100f, 300f, 80f, straight = false)
         t.side = -1; t.legTan = 1f; t.legCos = 0.7071f; t.legLeft = 100f; t.sinceTurn = 5f; t.sinceEntered = 5f; t.speed = 0.1f
         var turnedAt = Float.NaN
@@ -172,7 +171,7 @@ class PopPathTest {
 
     @Test
     fun `if a turn was too recent, a target at a wall waits there until the gap has passed and then turns away`() {
-        val s = session(1); s.holdSpawnForTest = true; s.holdFireForTest = true; s.holdPawsForTest = true
+        val s = sessionNoLoss(1); s.holdSpawnForTest = true; s.holdFireForTest = true
         val t = s.addTargetForTest(TargetKind.ROUND, 60f, 300f, 80f, straight = false)
         t.side = -1; t.legTan = 1f; t.legCos = 0.7071f; t.legLeft = 100f; t.sinceEntered = 5f; t.speed = 0.1f
         t.sinceTurn = 0f // it has just turned, and the wall is right there
@@ -209,8 +208,8 @@ class PopPathTest {
 
     @Test
     fun `slow drift halves all of a target's movement, sideways too, and does not change its run timer`() {
-        val a = session(1); a.holdSpawnForTest = true; a.holdFireForTest = true; a.holdPawsForTest = true
-        val b = session(1); b.holdSpawnForTest = true; b.holdFireForTest = true; b.holdPawsForTest = true
+        val a = sessionNoLoss(1); a.holdSpawnForTest = true; a.holdFireForTest = true
+        val b = sessionNoLoss(1); b.holdSpawnForTest = true; b.holdFireForTest = true
         val ta = a.addTargetForTest(TargetKind.ROUND, 180f, 300f, 60f, straight = false)
         val tb = b.addTargetForTest(TargetKind.ROUND, 180f, 300f, 60f, straight = false)
         for (t in listOf(ta, tb)) { t.speed = 0.08f; t.side = 1; t.legTan = 0.5f; t.legCos = 0.89f; t.legLeft = 50f; t.sinceEntered = 5f }
@@ -228,7 +227,7 @@ class PopPathTest {
         for (stage in 0 until 5) {
             val st = PopRamp.stages[stage]
             val speeds = ArrayList<Float>()
-            val s = session(6, st.startsAtPops); s.holdFireForTest = true; s.holdPawsForTest = true
+            val s = sessionNoLoss(6, st.startsAtPops); s.holdFireForTest = true
             val seen = java.util.IdentityHashMap<PopTarget, Float>()
             s.run(400f) { for (i in 0 until it.targetCount) { val t = it.target(i); if (seen.put(t, t.speed) == null) speeds += t.speed } }
             assertTrue("stage ${stage + 1}: ${speeds.size} targets", speeds.size > 60)
@@ -243,7 +242,7 @@ class PopPathTest {
             val st = PopRamp.stages[stage]
             var changes = 0
             var turns = 0
-            val s = session(7, st.startsAtPops); s.holdFireForTest = true; s.holdPawsForTest = true
+            val s = sessionNoLoss(7, st.startsAtPops); s.holdFireForTest = true
             val last = java.util.IdentityHashMap<PopTarget, FloatArray>() // speed, turns
             s.run(300f) {
                 for (i in 0 until it.targetCount) {
@@ -270,8 +269,8 @@ class PopPathTest {
     @Test
     fun `a target appears with its whole picture above the entry line and heads straight down`() {
         for (stage in 0 until 5) for (seed in 1..3) {
-            val s = session(seed, PopRamp.stages[stage].startsAtPops)
-            s.holdFireForTest = true; s.holdPawsForTest = true
+            val s = sessionNoLoss(seed, PopRamp.stages[stage].startsAtPops)
+            s.holdFireForTest = true
             var n = 0
             s.run(200f) {
                 if (it.spawned != n) {
@@ -289,7 +288,7 @@ class PopPathTest {
 
     @Test
     fun `a target enters exactly when its whole picture is below the line, and makes no turn in its first half second there`() {
-        val s = session(2); s.holdFireForTest = true; s.holdPawsForTest = true
+        val s = sessionNoLoss(2); s.holdFireForTest = true
         var checked = 0
         s.run(150f) {
             for (i in 0 until it.targetCount) {
@@ -319,7 +318,7 @@ class PopPathTest {
     // ------------------------------------------------------------------ one isPoppable for every way of popping
 
     private fun quiet(pops: Int = 0): PopSession {
-        val s = session(1, pops); s.holdSpawnForTest = true; s.holdFireForTest = true; s.holdPawsForTest = true
+        val s = sessionNoLoss(1, pops); s.holdSpawnForTest = true; s.holdFireForTest = true
         s.step(FRAME); s.clearTargetsForTest()
         return s
     }

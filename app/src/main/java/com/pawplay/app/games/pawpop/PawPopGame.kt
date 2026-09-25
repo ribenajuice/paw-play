@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.IntState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
@@ -91,6 +92,9 @@ private fun PawPopScreen(onExit: () -> Unit) {
         readDone = true
     }
     var game by remember { mutableIntStateOf(0) } // play again = the next number = a fresh session
+    // Bumped each time the saved best has been folded into the session's "new best" judgement; the good-game screen reads it,
+    // so a slow read that ends after the game did still updates the screen (its animal, celebration and best number).
+    val judged = remember { mutableIntStateOf(0) }
     if (!loaded) {
         Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(PopSkyTop, PopSkyBottom))))
@@ -99,13 +103,25 @@ private fun PawPopScreen(onExit: () -> Unit) {
     } else {
         val session = remember(game) { PopSession(bestBefore = best.best, bestKnown = best.isLoaded) }
         // A read that outlasted the cap: once it ends, "new best" is judged against the saved value too.
-        LaunchedEffect(session, readDone) { if (readDone) session.learnBest(best.storedAtLoad) }
-        PopScene(session, best, onExit, onPlayAgain = { game++ })
+        LaunchedEffect(session, readDone) {
+            if (readDone) {
+                session.learnBest(best.storedAtLoad)
+                judged.intValue++
+            }
+        }
+        PopScene(session, best, onExit, onPlayAgain = { game++ }, judged = judged)
     }
 }
 
 @Composable
-internal fun PopScene(session: PopSession, best: BestScore, onExit: () -> Unit, onPlayAgain: () -> Unit) {
+internal fun PopScene(
+    session: PopSession,
+    best: BestScore,
+    onExit: () -> Unit,
+    onPlayAgain: () -> Unit,
+    /** Changes whenever the saved best has been learned (see [PawPopScreen]); read where the ending is drawn. */
+    judged: IntState = remember { mutableIntStateOf(0) },
+) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
         val ui = remember(session) { PopUi(session, onScore = { best.submit(it) }) }
         val width = maxWidth.value
@@ -129,12 +145,13 @@ internal fun PopScene(session: PopSession, best: BestScore, onExit: () -> Unit, 
                 },
         )
 
-        // The game never rests: a frame every frame, for as long as the screen is here. After the app was in the
-        // background the first frame is one short step (the session caps a step at 50ms), so a pause never costs a paw.
-        // The frame callback is made once, not on every turn of the loop.
+        // A frame every frame while the game is played and through its 0.5s fade-out; the frame that ends it draws the
+        // final picture and the loop stops, so nothing redraws at 60fps behind the good-game screen. Play again is a new
+        // session, so a new loop. After the app was in the background the first frame is one short step (the session caps a
+        // step at 50ms), so a pause never costs a paw. The frame callback is made once, not on every turn of the loop.
         LaunchedEffect(ui) {
             val tick: (Long) -> Unit = { ui.onFrame(it) }
-            while (true) withFrameNanos(tick)
+            do withFrameNanos(tick) while (ui.active)
         }
 
         Canvas(Modifier.fillMaxSize()) {
@@ -176,11 +193,14 @@ internal fun PopScene(session: PopSession, best: BestScore, onExit: () -> Unit, 
 
         if (over) {
             val critter = remember(session) { Random.nextInt(4) } // which of the four animals smiles this time
+            // Read here, so the ending follows the final judgement even when the saved best is only learned after it shows.
+            judged.intValue
+            val isNewBest = session.isNewBest
             GoodGameScreen(
                 score = session.score,
                 best = maxOf(best.best, session.score),
-                isNewBest = session.isNewBest,
-                animal = { mod -> PopGoodGameAnimal(critter, happy = session.isNewBest, modifier = mod) },
+                isNewBest = isNewBest,
+                animal = { mod -> PopGoodGameAnimal(critter, happy = isNewBest, modifier = mod) },
                 onPlayAgain = onPlayAgain,
                 onHome = onExit,
                 wash = Color.White.copy(alpha = 0.20f),

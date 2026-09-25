@@ -119,8 +119,8 @@ internal object PopPath {
             t.sinceEntered += dt
             t.legLeft -= dt
         }
-        val mayTurn = t.entered && t.sinceEntered >= PopMetrics.NO_TURN_AFTER_ENTRY && t.sinceTurn >= PopMetrics.MIN_TURN_GAP
-        if (t.legLeft <= 0f && mayTurn) turn(t, st, random)
+        fun mayTurn() = t.entered && t.sinceEntered >= PopMetrics.NO_TURN_AFTER_ENTRY && t.sinceTurn >= PopMetrics.MIN_TURN_GAP
+        if (t.legLeft <= 0f && mayTurn()) turn(t, st, random)
         setVelocity(t, height, slow)
 
         // Keep the body 8dp from the side edges: turn early if the gap since the last turn allows, else stay at the wall.
@@ -128,7 +128,7 @@ internal object PopPath {
         val lo = half
         val hi = width - half
         var nx = t.x + t.vx * dt
-        if (hi >= lo && (nx < lo || nx > hi) && t.side != 0 && mayTurn) {
+        if (hi >= lo && (nx < lo || nx > hi) && t.side != 0 && mayTurn()) { // asked again: a turn just made this step has reset the gap
             turn(t, st, random)
             setVelocity(t, height, slow)
             nx = t.x + t.vx * dt

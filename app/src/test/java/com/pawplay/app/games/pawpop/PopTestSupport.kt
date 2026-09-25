@@ -8,6 +8,10 @@ internal const val FRAME = 1f / 60f
 internal fun session(seed: Int = 1, pops: Int = 0, width: Float = 360f, height: Float = 692f) =
     PopSession(Random(seed), pops, width, height)
 
+/** Like [session], but a target that gets past never costs a paw, so a long run of a poor player never ends the game. */
+internal fun sessionNoLoss(seed: Int = 1, pops: Int = 0, width: Float = 360f, height: Float = 692f) =
+    PopSession(Random(seed), pops, width, height, pawsNeverFall = true)
+
 /** Runs [seconds] of play in [dt] steps, calling [each] after every step. */
 internal inline fun PopSession.run(seconds: Float, dt: Float = FRAME, each: (PopSession) -> Unit = {}) {
     val steps = Math.round(seconds / dt)

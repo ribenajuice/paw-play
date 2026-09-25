@@ -100,6 +100,8 @@ class PopSession(
     startPaws: Int = PopMetrics.START_PAWS,
     /** False when the saved best had not been read yet at the start: no new best is claimed until [learnBest]. */
     bestKnown: Boolean = true,
+    /** Set only by tests, at construction: a plain target that gets past costs no paw, so a poor player can be watched to the end of a long run. The game never sets it. */
+    private val pawsNeverFall: Boolean = false,
 ) {
     var width: Float = max(width, 1f)
         private set
@@ -170,6 +172,13 @@ class PopSession(
 
     val shipCentreY: Float get() = height - PopMetrics.SHIP_BOTTOM_MARGIN - PopMetrics.SHIP_SIZE / 2f
     val nose: Float get() = height - PopMetrics.SHIP_BOTTOM_MARGIN - PopMetrics.SHIP_SIZE
+
+    /**
+     * Where stars, the ribbon and the wave end: the entry line ([PopMetrics.SKY_TOP]), or, on a play area so short that the
+     * line would sit too close to the nose for a star to fly at all (under about 210dp tall), [PopMetrics.STAR_MIN_FLIGHT]
+     * above the nose (never above the top of the area), so stars still fly. On every ordinary phone it is exactly the entry line.
+     */
+    val skyLine: Float get() = min(PopMetrics.SKY_TOP, max(0f, nose - PopMetrics.STAR_MIN_FLIGHT))
 
     /** True while a finger is steering. */
     val isSteering: Boolean get() = pilot != NO_POINTER
@@ -311,7 +320,7 @@ class PopSession(
         private set
 
     /** How far the ribbon has grown above the ship's nose, in dp (it grows from the nose at 1200 dp/s, and stops at the entry line like the stars). */
-    val ribbonLength: Float get() = min(nose - PopMetrics.SKY_TOP, ribbonAge * PopMetrics.RIBBON_GROW)
+    val ribbonLength: Float get() = max(0f, min(nose - skyLine, ribbonAge * PopMetrics.RIBBON_GROW))
 
     // ------------------------------------------------------------------ scheduling state
 
@@ -324,8 +333,6 @@ class PopSession(
         private set
     /** Tests only: keeps the beat but makes no stars, so nothing gets popped while a schedule is measured. */
     internal var holdFireForTest: Boolean = false
-    /** Tests only: a plain target that gets past costs no paw, so a long run of a poor player can be watched to its end without the game ending. */
-    internal var holdPawsForTest: Boolean = false
     /** Tests only: nothing new appears, so a test can watch exactly the targets it put there. */
     internal var holdSpawnForTest: Boolean = false
     private var spawnIn = PopMetrics.FIRST_SPAWN_AT
@@ -439,7 +446,7 @@ class PopSession(
 
     /** A plain target got past. Inside the 3s grace window nothing is lost; otherwise one paw fades and a new window starts. The third ends the game gently. */
     private fun losePaw() {
-        if (holdPawsForTest || graceLeft > 0f || paws <= 0 || phase != PopPhase.PLAYING) return
+        if (pawsNeverFall || graceLeft > 0f || paws <= 0 || phase != PopPhase.PLAYING) return
         paws--
         pawFadeIndex = paws
         pawLostAt = time
@@ -600,7 +607,7 @@ class PopSession(
     /** A star twinkles out when its top edge reaches the entry line (or it leaves by a side): it never goes on into the strip above. */
     private fun starGone(s: PopStar): Boolean {
         val r = if (s.big) PopMetrics.BIG_STAR_RADIUS else PopMetrics.STAR_RADIUS
-        return s.y - r <= PopMetrics.SKY_TOP || s.x < -PopMetrics.STAR_EXIT_MARGIN || s.x > width + PopMetrics.STAR_EXIT_MARGIN
+        return s.y - r <= skyLine || s.x < -PopMetrics.STAR_EXIT_MARGIN || s.x > width + PopMetrics.STAR_EXIT_MARGIN
     }
 
     /** A star centre within 8dp (28dp for a big star) of the drawn edge is a hit: tested against the target's hit ellipse grown by that. */
@@ -703,7 +710,7 @@ class PopSession(
     private fun runWave(dt: Float) {
         if (!waveActive) return
         waveAge += dt
-        waveY = nose + 20f - waveAge * ((nose + 20f - PopMetrics.SKY_TOP + 30f) / PopMetrics.WAVE_SECONDS)
+        waveY = nose + 20f - waveAge * ((nose + 20f - skyLine + 30f) / PopMetrics.WAVE_SECONDS)
         if (wavePops) {
             var i = 0
             while (i < targetList.size) {
@@ -711,7 +718,7 @@ class PopSession(
                 if (!t.isCarrier && isPoppable(t) && waveY <= t.y) pop(i) else i++ // one after another as it reaches each; carriers and targets still coming in are skipped
             }
         }
-        if (waveY < PopMetrics.SKY_TOP - 30f) {
+        if (waveY < skyLine - 30f) {
             waveActive = false
             if (waveSparkly) { sparkleCount -= PopMetrics.WAVE_SPARKLES; waveSparkly = false }
         }
@@ -753,6 +760,8 @@ class PopSession(
         for (i in 0 until targetList.size) { // a target keeps its place as a fraction of the area, and stays inside the sides
             val t = targetList[i]
             t.y *= fy0
+            // Once entered, always entered: a shorter area must not carry a poppable target back above the entry line (it would be drawn solid there).
+            if (t.entered) t.y = max(t.y, PopMetrics.SKY_TOP + t.kind.top * t.size)
             val lo = t.size / 2f + PopMetrics.EDGE_CLEAR
             t.x = if (newWidth - lo >= lo) (t.x * fx0).coerceIn(lo, newWidth - lo) else newWidth / 2f
         }

@@ -19,7 +19,12 @@ class PopPacingTest {
 
     private val seeds = 1..40
 
-    private val games: Map<Player, List<Played>> by lazy { Player.values().associateWith { p -> seeds.map { playGame(p, it) } } }
+    private val games: Map<Player, List<Played>> get() = Runs.games
+
+    /** The scripted games are played once for the whole class (they take the best part of a minute), not once per test. */
+    private object Runs {
+        val games: Map<Player, List<Played>> by lazy { Player.values().associateWith { p -> (1..40).map { playGame(p, it) } } }
+    }
 
     private fun table(): String {
         val sb = StringBuilder("seconds to stage 2/3/4/5 (median), paws lost in the first 60s (median), how the game ended\n")
@@ -53,6 +58,24 @@ class PopPacingTest {
         val perfect = games.getValue(Player.PERFECT)
         val reached4 = perfect.count { !it.stageAt[2].isNaN() && (!it.ended || it.stageAt[2] <= it.endedAt) }
         assertTrue("perfect aim reached stage 4 in $reached4 of ${perfect.size}", reached4 > perfect.size * 3 / 4)
+    }
+
+    /**
+     * The ramp must not be quick either: the tests above only stop it being too slow or too kind. Measured 2026-09-26 over these
+     * 40 seeds, perfect aim and a busy tapper first reach stage 5 (165 pops) after about 405 s and 409 s (medians). The floor is
+     * 240 s, well under that, so ordinary re-tuning of the table does not trip it, but a change that let a flawless or a
+     * tapping player race to the hardest stage in a few minutes (a pop threshold slashed, say) would.
+     */
+    @Test
+    fun `a perfect or a busy player cannot reach stage 5 faster than the measured range less a wide margin`() {
+        val floorSeconds = 240.0
+        for (p in listOf(Player.PERFECT, Player.BUSY)) {
+            val at = games.getValue(p).map { it.stageAt[3] }.filter { !it.isNaN() }
+            println("$p stage 5 at min ${at.minOrNull()} median ${median(at)} (${at.size} of ${seeds.count()} runs got there)")
+            assertTrue("$p: at least some runs reach stage 5, or the floor tests nothing", at.size >= 10)
+            assertTrue("$p: fastest run reached stage 5 at ${at.min()} s", at.all { it >= floorSeconds })
+            assertTrue("$p: median ${median(at)} s", median(at) >= floorSeconds + 60.0)
+        }
     }
 
     @Test

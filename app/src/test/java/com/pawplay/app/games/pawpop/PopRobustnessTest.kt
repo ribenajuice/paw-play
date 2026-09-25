@@ -204,7 +204,7 @@ class PopRobustnessTest {
 
     @Test
     fun `after the play area gets narrower every target is still inside it and keeps its place as a fraction of the width`() {
-        val s = session(1, 0, 400f, 700f); s.holdSpawnForTest = true; s.holdFireForTest = true; s.holdPawsForTest = true
+        val s = sessionNoLoss(1, 0, 400f, 700f); s.holdSpawnForTest = true; s.holdFireForTest = true
         val a = s.addTargetForTest(TargetKind.ROUND, 340f, 200f, 100f)
         val b = s.addTargetForTest(TargetKind.OVAL, 60f, 300f, 96f)
         s.setArea(200f, 700f)
@@ -214,7 +214,7 @@ class PopRobustnessTest {
         s.setArea(400f, 700f)
         s.run(1f) { assertTrue(it.target(0).x in 0f..400f) }
         // zig-zagging targets on a narrow area never leave it either
-        val t = session(2, 165, 320f, 568f); t.holdFireForTest = true; t.holdPawsForTest = true
+        val t = sessionNoLoss(2, 165, 320f, 568f); t.holdFireForTest = true
         var n = 0
         t.run(120f) {
             if (n++ % 600 == 0) it.setArea(if ((n / 600) % 2 == 0) 320f else 240f, 568f)

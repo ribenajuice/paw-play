@@ -25,6 +25,7 @@ object PopMetrics {
     const val STAR_SPEED = 0.9f          // screen heights per second
     const val FAN_DEGREES = 12f
     const val STAR_LAUNCH_ABOVE_NOSE = 6f
+    const val STAR_MIN_FLIGHT = 60f      // on a very short play area the stars' end line is never closer than this to the nose
     const val STAR_EXIT_MARGIN = 30f     // sideways only: a star that leaves by a side is removed this far outside
     const val HIT_REACH = 8f             // a star centre this close to the drawn edge is a hit
     const val BIG_HIT_REACH = 28f
