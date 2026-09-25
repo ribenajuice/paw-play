@@ -77,14 +77,88 @@ class BestScoreTest {
     }
 
     @Test
-    fun `an unreadable store reads as 0 and play carries on`() {
+    fun `an unreadable store reads as 0 and play carries on, with the score kept in memory only`() {
         val store = FakeStore(readFails = true)
         val b = BestScore(blocks, store)
         b.load()
         assertEquals(0, b.best)
+        assertFalse("a failed read is not a read", b.isLoaded)
         assertTrue(b.submit(40))
         assertEquals(40, b.best)
-        assertEquals(40, store.stored[blocks])
+        assertEquals("nothing is written over a store that could not be read", 0, store.writes)
+        assertNull(store.stored[blocks])
+    }
+
+    @Test
+    fun `a failed read never lets a low score overwrite a real saved best, and the next successful read keeps the higher one`() {
+        val store = FakeStore(stored = hashMapOf(blocks to 500), readFails = true)
+        val b = BestScore(blocks, store)
+        b.load() // fails: the 500 is there but unseen
+        assertTrue(b.submit(7))
+        assertEquals(7, b.best)
+        assertEquals(500, store.stored[blocks])
+        assertEquals(0, store.writes)
+        store.readFails = false
+        b.load() // the game is opened again and the read works
+        assertTrue(b.isLoaded)
+        assertEquals("the real saved best comes back", 500, b.best)
+        assertEquals(500, b.storedAtLoad)
+        assertEquals("and was never touched", 500, store.stored[blocks])
+        assertEquals(0, store.writes)
+    }
+
+    @Test
+    fun `a best made while the store could not be read is saved by the first read that works, if it beats what is there`() {
+        val store = FakeStore(stored = hashMapOf(blocks to 30), readFails = true)
+        val b = BestScore(blocks, store)
+        b.load()
+        b.submit(90)
+        assertEquals(30, store.stored[blocks])
+        store.readFails = false
+        b.load()
+        assertEquals(90, b.best)
+        assertEquals(90, store.stored[blocks])
+    }
+
+    @Test
+    fun `a read that fails part way through the app session does not disturb a best already loaded`() {
+        val store = FakeStore(stored = hashMapOf(blocks to 40))
+        val b = BestScore(blocks, store)
+        b.load()
+        assertTrue(b.isLoaded)
+        store.readFails = true
+        b.load()
+        assertTrue("still counts as loaded from before", b.isLoaded)
+        assertEquals(40, b.best)
+        assertEquals(40, b.storedAtLoad)
+        assertTrue(b.submit(41))
+        assertEquals(41, store.stored[blocks]) // the disk was seen earlier this session, so this is safe to write
+    }
+
+    @Test
+    fun `the disk never goes backwards when a score arrives while the read's own write is still in flight`() {
+        val writes = java.util.Collections.synchronizedList(ArrayList<Int>())
+        val disk = java.util.concurrent.atomic.AtomicInteger(0)
+        val firstWriteStarted = java.util.concurrent.CountDownLatch(1)
+        val letFirstWriteFinish = java.util.concurrent.CountDownLatch(1)
+        val store = object : IntStore {
+            override fun read(key: String): Int? = null
+            override fun write(key: String, value: Int) {
+                if (writes.isEmpty()) { writes += value; firstWriteStarted.countDown(); letFirstWriteFinish.await(5, java.util.concurrent.TimeUnit.SECONDS) }
+                else writes += value
+                disk.set(value)
+            }
+        }
+        val b = BestScore(blocks, store)
+        b.submit(50) // before the read: memory only
+        val loader = Thread { b.load() }.also { it.start() } // will write 50, slowly
+        assertTrue(firstWriteStarted.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        val submitter = Thread { b.submit(60) }.also { it.start() } // a newer best arrives meanwhile
+        Thread.sleep(150)
+        letFirstWriteFinish.countDown()
+        loader.join(5000); submitter.join(5000)
+        assertEquals("the disk ends on the newer best", 60, disk.get())
+        assertEquals("and only ever rose", writes.sorted(), writes.toList())
     }
 
     // ------------------------------------------------------------------ submitting
@@ -167,10 +241,14 @@ class BestScoreTest {
     }
 
     @Test
-    fun `a failed read followed by an early score still saves the score`() {
+    fun `a failed read followed by an early score does not save it until a read works`() {
         val store = FakeStore(readFails = true)
         val b = BestScore(blocks, store)
         b.submit(9)
+        b.load()
+        assertEquals(9, b.best)
+        assertNull(store.stored[blocks])
+        store.readFails = false
         b.load()
         assertEquals(9, b.best)
         assertEquals(9, store.stored[blocks])
