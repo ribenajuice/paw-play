@@ -53,7 +53,7 @@ internal fun DrawScope.drawScene(ui: BlocksUi, now: Long) {
     val peek = line?.let { critterRise((now - it.start).toFloat() / BlocksTiming.CRITTER_MS) } ?: 0f
     if (line != null && peek > 0f) {
         val x = layout.panelRight - CRITTER_INSET
-        val y = layout.panelTop - CRITTER_RISE + (1f - peek) * CRITTER_DROP
+        val y = layout.panelTop - layout.critterLift + (1f - peek) * CRITTER_DROP
         translate(x, y) { drawHappyCritter(line.critter, CRITTER_SIZE) }
     }
 
@@ -198,7 +198,6 @@ private const val SWEEP_CELL_SPREAD_MS = 450f
 private const val SPARKLE_MS = 520f
 private const val CRITTER_SIZE = 72f
 private const val CRITTER_INSET = 78f  // the head's left edge, back from the panel's right edge
-private const val CRITTER_RISE = 68f   // the head's top when fully up, above the panel top
 private const val CRITTER_DROP = 58f
 private const val PAW_INSET_A = 60f
 private const val PAW_INSET_B = 24f

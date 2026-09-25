@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.IntState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
@@ -30,6 +32,7 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -42,6 +45,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.pawplay.app.data.BestScore
 import com.pawplay.app.data.rememberBestScore
 import com.pawplay.app.games.MiniGame
@@ -89,18 +94,33 @@ private fun PawBlocksScreen(onExit: () -> Unit) {
         readDone = true
     }
     var game by remember { mutableIntStateOf(0) } // play again = the next number = a fresh session
+    // Bumped each time the saved best has been folded into the session's "new best" judgement; the good-game screen reads it,
+    // so a slow read that ends after the game did still updates the screen (its animal, celebration and best number).
+    val judged = remember { mutableIntStateOf(0) }
     if (!loaded) {
         Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) { HomeCorner(onExit) }
     } else {
         val session = remember(game) { BlocksSession(bestBefore = best.best, bestKnown = best.isLoaded) }
         // A read that outlasted the cap: once it ends, "new best" is judged against the saved value too.
-        LaunchedEffect(session, readDone) { if (readDone) session.learnBest(best.storedAtLoad) }
-        BlocksScene(session, best, onExit, onPlayAgain = { game++ })
+        LaunchedEffect(session, readDone) {
+            if (readDone) {
+                session.learnBest(best.storedAtLoad)
+                judged.intValue++
+            }
+        }
+        BlocksScene(session, best, onExit, onPlayAgain = { game++ }, judged = judged)
     }
 }
 
 @Composable
-internal fun BlocksScene(session: BlocksSession, best: BestScore, onExit: () -> Unit, onPlayAgain: () -> Unit) {
+internal fun BlocksScene(
+    session: BlocksSession,
+    best: BestScore,
+    onExit: () -> Unit,
+    onPlayAgain: () -> Unit,
+    /** Changes whenever the saved best has been learned (see [PawBlocksScreen]); read where the ending is drawn. */
+    judged: IntState = remember { mutableIntStateOf(0) },
+) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
         val layout = remember(maxWidth, maxHeight) { blocksLayout(maxWidth.value, maxHeight.value) }
         // The best is saved the moment a placement lifts the score past it, so leaving early never loses it.
@@ -112,6 +132,14 @@ internal fun BlocksScene(session: BlocksSession, best: BestScore, onExit: () -> 
 
         // The frame loop runs only while something moves or is due (a finger down, an effect playing, a refill,
         // growth, a clear-out or the ending waiting); a quiet board costs nothing. Any touch that changes things wakes it.
+        // Coming back from the background does not count as time passed: the stuck wait, the refill and the rest carry on from where they were.
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(ui, lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) ui.resumed() }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        }
+
         val wake = remember { mutableIntStateOf(0) }
         LaunchedEffect(ui, wake.intValue) {
             do {
@@ -163,11 +191,14 @@ internal fun BlocksScene(session: BlocksSession, best: BestScore, onExit: () -> 
         if (!over) BlocksStrip(ui)
 
         if (over) {
+            // Read here, so the ending follows the final judgement even when the saved best is only learned after it shows.
+            judged.intValue
+            val isNewBest = session.isNewBest
             GoodGameScreen(
                 score = session.score,
                 best = maxOf(best.best, session.score),
-                isNewBest = session.isNewBest,
-                animal = { mod -> BlocksGoodGameAnimal(happy = session.isNewBest, modifier = mod) },
+                isNewBest = isNewBest,
+                animal = { mod -> BlocksGoodGameAnimal(happy = isNewBest, modifier = mod) },
                 onPlayAgain = onPlayAgain,
                 onHome = onExit,
             )
@@ -184,12 +215,14 @@ internal fun BlocksScene(session: BlocksSession, best: BestScore, onExit: () -> 
 private fun BoxWithConstraintsScope.BlocksStrip(ui: BlocksUi) {
     val paws by remember(ui) { derivedStateOf { ui.frame.longValue; ui.revision.intValue; ui.session.paws } }
     val score by remember(ui) { derivedStateOf { ui.frame.longValue; ui.revision.intValue; ui.session.score } }
-    // Time only matters while a paw fades; outside that window the value is constant, so the row is skipped.
-    val fadeStart = ui.pawFadeStart
-    val now = ui.frame.longValue.coerceIn(fadeStart, fadeStart + PAW_FADE_MS)
+    val fadeIndex by remember(ui) { derivedStateOf { ui.frame.longValue; ui.pawFadeIndex } }
+    val fadeStart by remember(ui) { derivedStateOf { ui.frame.longValue; ui.pawFadeStart } }
+    // Time only matters while a paw fades; outside that window the value is constant, so the row is not redrawn every frame
+    // (this function itself no longer reads the frame clock, so it does not recompose on every frame).
+    val now by remember(ui) { derivedStateOf { val start = ui.pawFadeStart; ui.frame.longValue.coerceIn(start, start + PAW_FADE_MS) } }
     PawLivesRow(
         paws = paws,
-        fadingIndex = ui.pawFadeIndex.takeIf { it >= 0 },
+        fadingIndex = fadeIndex.takeIf { it >= 0 },
         fadeStartMs = fadeStart,
         nowMs = now,
         modifier = Modifier.offset(x = BlocksLayout.pawLeft(0).dp, y = BlocksLayout.PAWS_TOP.dp),

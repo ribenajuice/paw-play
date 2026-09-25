@@ -83,11 +83,30 @@ internal class BlocksUi(
     val revision = mutableIntStateOf(0)
 
     private val random = Random(seed)
+
+    /**
+     * The game's own time, in milliseconds: the screen's frame clock less every stretch the app spent in the background.
+     * Every timer and effect (the stuck wait, the refill, growth, fades) runs on this one clock, so leaving the app and
+     * coming back changes nothing: no clear-out, no ending and no refill fires on the first frame back (docs/PRD.md story 72).
+     * It starts at 0 with the first frame (and a touch before that frame reads the real time since this screen was made, from 0),
+     * so a fresh game after "play again" is on the same footing as the first.
+     */
     private var lastFrameMs = 0L
-    private var lastFrameWall = 0L
+    private var lastFrameWall = System.nanoTime()
+
+    /** The frame clock's value at the last frame (raw), and how much of it was time away that the game's clock leaves out. */
+    private var lastRawMs = Long.MIN_VALUE
+    private var awayMs = 0L
+    private var justResumed = false
+
+    /** The app came back to the foreground: the time since the last frame does not count for the game. Called on ON_RESUME. */
+    fun resumed() {
+        justResumed = true
+        lastFrameWall = System.nanoTime() // a touch before the first frame back is judged from now, not from before the pause
+    }
 
     /** "Now" for a touch: the last frame's time plus the real time since, so a touch after a quiet spell is not stale. */
-    fun nowMs(): Long = if (lastFrameWall == 0L) lastFrameMs else lastFrameMs + (System.nanoTime() - lastFrameWall) / 1_000_000L
+    fun nowMs(): Long = lastFrameMs + (System.nanoTime() - lastFrameWall) / 1_000_000L
 
     /** True while anything needs another frame: a finger is down, an effect is playing, or the game has a follow-up due. */
     val active: Boolean
@@ -105,7 +124,12 @@ internal class BlocksUi(
 
     // ------------------------------------------------------------ frames
 
-    fun onFrame(now: Long) {
+    fun onFrame(rawMs: Long) {
+        if (lastRawMs == Long.MIN_VALUE) awayMs = rawMs // the first frame is time 0, the same epoch a touch before it reads
+        else if (justResumed) awayMs += maxOf(0L, rawMs - lastRawMs) // the pause did not happen, as far as the game knows
+        justResumed = false
+        lastRawMs = rawMs
+        val now = rawMs - awayMs
         lastFrameMs = now
         lastFrameWall = System.nanoTime()
         for (event in session.tick(now)) {

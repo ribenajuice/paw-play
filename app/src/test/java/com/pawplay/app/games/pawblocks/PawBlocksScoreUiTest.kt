@@ -120,11 +120,11 @@ class PawBlocksScoreUiTest {
 
     @Test
     fun `a clear-out fades the paw that was spent, from 200ms into the clear-out`() {
-        // Stuck from the start, so the first frame (at 1000ms) does the clear-out.
+        // Stuck from the start, so the first frame does the clear-out.
         val u = ui(board = stuckBoard(), tray = stuckTray)
         assertEquals(2, u.session.paws)
         assertEquals("the rightmost paw fades first", 2, u.pawFadeIndex)
-        assertEquals(1000L + PAW_FADE_DELAY_MS, u.pawFadeStart)
+        assertEquals(PAW_FADE_DELAY_MS, u.pawFadeStart) // the game's clock reads 0 at the first frame
         assertEquals(1, u.outs.size)
         assertTrue("the frame loop keeps running for the whole clear-out, so the fade is seen to the end", u.active)
         assertTrue("the paw's 0.6s fade is over before the clear-out effect is", u.pawFadeStart + com.pawplay.app.ui.PAW_FADE_MS <= u.outs[0].end)

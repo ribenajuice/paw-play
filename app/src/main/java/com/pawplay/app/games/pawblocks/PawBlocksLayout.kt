@@ -35,6 +35,13 @@ class BlocksLayout(
     val panelRight: Float get() = panelLeft + panelSize
     val panelBottom: Float get() = panelTop + panelSize
 
+    /**
+     * How far above the panel's top the peeking animal's head reaches when fully up: [CRITTER_RISE] (68) on the reference
+     * screen, less when the top margin has been squeezed (a short phone), so the animal's ears never go higher than
+     * [CRITTER_TOP_MIN] and never cover the paws, the score or the home button in the strip.
+     */
+    val critterLift: Float get() = min(CRITTER_RISE, panelTop - CRITTER_TOP_MIN)
+
     fun slotLeftOf(i: Int): Float = slotLeft + i * (slotWidth + SLOT_GAP)
 
     /** Which tray slot the point is in (the whole slot is the grab area), or -1. */
@@ -85,6 +92,8 @@ class BlocksLayout(
         const val SIDE_MARGIN = 6f            // panel edge to screen edge: the board is never touched, so it may go near the edge
         const val TRAY_SIDE_MARGIN = 24f      // tray edge to screen edge: keeps the outer slots off the back-gesture strip
         const val REFERENCE_TOP = 132f        // was 96: the strip and the animal's peek lane sit above the board
+        const val CRITTER_RISE = 68f          // the animal's head top above the panel top, when there is room (the reference screen)
+        const val CRITTER_TOP_MIN = 64f       // the animal's drawing never starts higher than this (its ears are drawn 6dp lower, at 70, clear of the score's figures)
         const val MIN_TOP = 96f               // never up into the strip, which ends at STRIP_BOTTOM
         const val REFERENCE_SLOT_HEIGHT = 112f
         const val REFERENCE_SLOT_WIDTH = 96f
