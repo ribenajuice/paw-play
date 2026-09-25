@@ -147,6 +147,14 @@ internal class BlocksUi(
         return true
     }
 
+    /**
+     * Where the carried block would land, for the ghost, or null. Null too until the finger has travelled the tap
+     * slop: a press-and-hold is a tap (it goes home on release), so it must not promise a drop (story 41). Uses the
+     * same [BlocksLayout.dropSpot] call as [finish], so what the ghost shows is what the drop does.
+     */
+    fun ghostSpot(shape: BlockShape, cell: Float): Spot? =
+        if (tracker.active && tracker.pastSlop) layout.dropSpot(session.board, shape, cell, tracker.x, tracker.y) else null
+
     fun onMove(id: Long, x: Float, y: Float): Boolean = tracker.move(id, x, y)
 
     fun onUp(id: Long, x: Float, y: Float): Boolean {

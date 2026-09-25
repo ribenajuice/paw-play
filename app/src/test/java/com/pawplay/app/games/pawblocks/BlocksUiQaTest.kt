@@ -2,6 +2,8 @@ package com.pawplay.app.games.pawblocks
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.hypot
@@ -89,6 +91,43 @@ class BlocksUiQaTest {
         assertEquals(0, u2.session.score)
         assertEquals(3, u2.session.paws)
         assertEquals(shape, u2.session.slot(0))
+    }
+
+    // ------------------------------------------------------------------ the ghost promises only what a release does (story 41)
+
+    @Test
+    fun `no ghost shows for a press-and-hold or a wobble under the slop, and it shows once the finger has really moved`() {
+        val u = ui()
+        val cell = u.layout.cellSize(5f)
+        val (sx, sy) = slotCentre(u, 0)
+        assertNull("nothing held, no ghost", u.ghostSpot(dot, cell))
+        u.onPointer(1, sx, sy, true, false, false)
+        assertTrue(u.tracker.active) // the block lifts and rides as before
+        assertNull("press-and-hold", u.ghostSpot(dot, cell))
+        u.onPointer(1, sx, sy - 11.9f, true, true, false)
+        assertNull("just under the slop", u.ghostSpot(dot, cell))
+        u.onPointer(1, sx, sy - Snap.TAP_SLOP_DP, true, true, false)
+        val ghost = u.ghostSpot(dot, cell)
+        assertNotNull("at the slop it is a drag", ghost)
+        // what you see is what you get: releasing here lands the block on the ghost's cell
+        u.onPointer(1, sx, sy - Snap.TAP_SLOP_DP, false, true, false)
+        assertEquals(1, u.session.board.filledCount)
+        assertFalse(u.session.board.isEmpty(ghost!!.row, ghost.col))
+    }
+
+    @Test
+    fun `a wobble under the slop that is then released shows no ghost at any point and goes home`() {
+        val u = ui()
+        val cell = u.layout.cellSize(5f)
+        val (sx, sy) = slotCentre(u, 1)
+        u.onPointer(1, sx, sy, true, false, false)
+        for (d in listOf(2f, -3f, 5f, -8f, 9f)) { // hypot(9, 4.5) = 10.1, under the slop
+            u.onPointer(1, sx + d, sy - d / 2f, true, true, false)
+            assertNull(u.ghostSpot(shape("bar2h"), cell))
+        }
+        u.onPointer(1, sx, sy, false, true, false)
+        assertEquals(0, u.session.board.filledCount)
+        assertEquals(1, u.returns.size)
     }
 
     // ------------------------------------------------------------------ mashing

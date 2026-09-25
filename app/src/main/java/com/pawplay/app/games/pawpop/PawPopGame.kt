@@ -82,10 +82,13 @@ private const val BEST_READ_CAP_MS = 500L
 private fun PawPopScreen(onExit: () -> Unit) {
     val best = rememberBestScore(BEST_KEY)
     var loaded by remember { mutableStateOf(false) }
+    var readDone by remember { mutableStateOf(best.isLoaded) }
     LaunchedEffect(best) {
         val read = launch(Dispatchers.IO) { best.load() }
         withTimeoutOrNull(BEST_READ_CAP_MS) { read.join() } // a slow read keeps going in the background and merges when done
         loaded = true
+        read.join() // play is not held up: only "new best" waits for the saved value
+        readDone = true
     }
     var game by remember { mutableIntStateOf(0) } // play again = the next number = a fresh session
     if (!loaded) {
@@ -94,7 +97,9 @@ private fun PawPopScreen(onExit: () -> Unit) {
             ExitButton(onClick = onExit, modifier = Modifier.offset(x = PopMetrics.HOME_INSET.dp, y = PopMetrics.HOME_INSET.dp))
         }
     } else {
-        val session = remember(game) { PopSession(bestBefore = best.best) }
+        val session = remember(game) { PopSession(bestBefore = best.best, bestKnown = best.isLoaded) }
+        // A read that outlasted the cap: once it ends, "new best" is judged against the saved value too.
+        LaunchedEffect(session, readDone) { if (readDone) session.learnBest(best.storedAtLoad) }
         PopScene(session, best, onExit, onPlayAgain = { game++ })
     }
 }

@@ -220,6 +220,9 @@ class DragTracker {
 
     val active: Boolean get() = pointerId != null
 
+    /** True once the finger has travelled [Snap.TAP_SLOP_DP] or more from where it landed: from then on this is a drag, not a tap. Stays true for the rest of the touch. */
+    val pastSlop: Boolean get() = active && travel >= Snap.TAP_SLOP_DP
+
     /** A finger went down at [px], [py] on [slotHit] (or -1), which [hasBlock] says can be lifted. True if this finger now drags. */
     fun down(id: Long, px: Float, py: Float, slotHit: Int, hasBlock: Boolean): Boolean {
         if (active || slotHit < 0 || !hasBlock) return false

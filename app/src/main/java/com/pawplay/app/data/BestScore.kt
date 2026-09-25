@@ -30,6 +30,17 @@ class BestScore(val key: String, private val store: IntStore) {
     /** True once [load] has looked at the store. Until then a new best is held in memory only, so it can never overwrite a higher saved one. */
     private var loaded = false
 
+    /** True once [load] has looked at the store (so [best] includes what was saved). */
+    val isLoaded: Boolean get() = synchronized(lock) { loaded }
+
+    /**
+     * What the store held when [load] last looked (0 for nothing or junk), before merging with anything submitted
+     * since. A game that began before the read finished uses it to judge "new best" against the saved value.
+     */
+    @Volatile
+    var storedAtLoad: Int = 0
+        private set
+
     /**
      * Reads the stored best. Blocking: call it off the main thread (the games use `Dispatchers.IO` with a 500ms
      * cap). A missing, unreadable, non-integer, negative or over-[MAX] value counts as 0. Merges with `max`, so a
@@ -46,6 +57,7 @@ class BestScore(val key: String, private val store: IntStore) {
         synchronized(lock) {
             if (valid > best) best = valid
             loaded = true
+            storedAtLoad = valid
             unsaved = if (best > valid) best else 0 // in memory but not (or not yet) on disk
         }
         if (unsaved > 0) write(unsaved)

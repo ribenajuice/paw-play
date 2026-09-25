@@ -80,16 +80,21 @@ private const val BEST_READ_CAP_MS = 500L
 private fun PawBlocksScreen(onExit: () -> Unit) {
     val best = rememberBestScore(BEST_KEY)
     var loaded by remember { mutableStateOf(false) }
+    var readDone by remember { mutableStateOf(best.isLoaded) }
     LaunchedEffect(best) {
         val read = launch(Dispatchers.IO) { best.load() }
         withTimeoutOrNull(BEST_READ_CAP_MS) { read.join() } // a slow read keeps going in the background and merges when done
         loaded = true
+        read.join() // play is not held up: only "new best" waits for the saved value
+        readDone = true
     }
     var game by remember { mutableIntStateOf(0) } // play again = the next number = a fresh session
     if (!loaded) {
         Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) { HomeCorner(onExit) }
     } else {
-        val session = remember(game) { BlocksSession(bestBefore = best.best) }
+        val session = remember(game) { BlocksSession(bestBefore = best.best, bestKnown = best.isLoaded) }
+        // A read that outlasted the cap: once it ends, "new best" is judged against the saved value too.
+        LaunchedEffect(session, readDone) { if (readDone) session.learnBest(best.storedAtLoad) }
         BlocksScene(session, best, onExit, onPlayAgain = { game++ })
     }
 }

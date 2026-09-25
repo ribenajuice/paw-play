@@ -95,9 +95,11 @@ class PopSession(
     width: Float = 360f,
     height: Float = 692f,
     /** The saved best when this game began; [isNewBest] compares the score with it. */
-    val bestBefore: Int = 0,
+    bestBefore: Int = 0,
     startScore: Int = 0,
     startPaws: Int = PopMetrics.START_PAWS,
+    /** False when the saved best had not been read yet at the start: no new best is claimed until [learnBest]. */
+    bestKnown: Boolean = true,
 ) {
     var width: Float = max(width, 1f)
         private set
@@ -133,7 +135,21 @@ class PopSession(
     private var endingLeft = 0f
 
     /** True when this game's score beat the best from before it began (equal does not). */
-    val isNewBest: Boolean get() = score > bestBefore
+    val isNewBest: Boolean get() = bestKnown && score > bestBefore
+
+    /** The best from before this game began. Rises (never falls) when a slow read of the saved best finishes: see [learnBest]. */
+    @Volatile
+    var bestBefore: Int = bestBefore.coerceAtLeast(0)
+        private set
+
+    @Volatile
+    private var bestKnown: Boolean = bestKnown
+
+    /** The slow read of the saved best has finished with [stored]: from now on "new best" is judged against it too, so a small score can never claim to beat a higher saved one. */
+    fun learnBest(stored: Int) {
+        bestBefore = maxOf(bestBefore, stored)
+        bestKnown = true
+    }
 
     /** The slot of the paw that fell last (it equals [paws] right after the loss), or -1 before any loss; it fades over 0.6s from [pawFadeStartMs]. */
     var pawFadeIndex: Int = -1

@@ -151,7 +151,7 @@ internal fun DrawScope.drawScene(ui: BlocksUi, now: Long) {
     if (tracker.active) {
         val shape = session.slot(tracker.slot)
         if (shape != null) {
-            val spot = layout.dropSpot(board, shape, cell, tracker.x, tracker.y)
+            val spot = ui.ghostSpot(shape, cell) // none until the finger has really moved: a press-and-hold is a tap
             if (spot != null) drawGhost(shape, gx + spot.col * cell, gy + spot.row * cell, cell, big = board.size >= BlocksRamp.NEAR_COMPLETE_MIN_BOARD)
             val pose = ui.dragPose(shape, tracker.slot, tracker.x, tracker.y, now)
             drawBlockShadow(shape, pose.x, pose.y, pose.s)

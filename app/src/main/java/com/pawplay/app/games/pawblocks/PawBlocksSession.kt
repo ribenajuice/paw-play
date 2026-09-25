@@ -69,9 +69,11 @@ class BlocksSession(
     startBoard: Board? = null,
     startTray: List<BlockShape?>? = null,
     /** The saved best score when this game began; the good-game screen's "new best" compares against it. */
-    val bestBefore: Int = 0,
+    bestBefore: Int = 0,
     startScore: Int = 0,
     startPaws: Int = BlocksRamp.START_PAWS,
+    /** False when the saved best had not been read yet at the start: no new best is claimed until [learnBest]. */
+    bestKnown: Boolean = true,
 ) {
     var board: Board = startBoard ?: Board.empty(BlocksRamp.boardSizeFor(BlocksRamp.stageFor(startClears)))
         private set
@@ -98,7 +100,21 @@ class BlocksSession(
         private set
 
     /** True when this game's score beats the best from before it began. Equal does not. */
-    val isNewBest: Boolean get() = score > bestBefore
+    val isNewBest: Boolean get() = bestKnown && score > bestBefore
+
+    /** The best from before this game began. Rises (never falls) when a slow read of the saved best finishes: see [learnBest]. */
+    @Volatile
+    var bestBefore: Int = bestBefore.coerceAtLeast(0)
+        private set
+
+    @Volatile
+    private var bestKnown: Boolean = bestKnown
+
+    /** The slow read of the saved best has finished with [stored]: from now on "new best" is judged against it too, so a small score can never claim to beat a higher saved one. */
+    fun learnBest(stored: Int) {
+        bestBefore = maxOf(bestBefore, stored)
+        bestKnown = true
+    }
 
     private val trayMutable: Array<BlockShape?> = arrayOfNulls(BlocksRamp.TRAY_SIZE)
 
