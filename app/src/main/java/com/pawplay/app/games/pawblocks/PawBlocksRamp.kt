@@ -2,7 +2,7 @@ package com.pawplay.app.games.pawblocks
 
 /**
  * The ramp, exactly per docs/PRD.md Milestone 5. A "clear" is one placement that completes at least one line
- * (a double line counts once); the gentle clear-out never counts. Stages are invisible to the child: no number,
+ * (a double line counts once); the gentle clear-out never counts (and scores nothing). Stages are invisible to the child: no number,
  * banner or lock.
  *
  * | Stage | Starts after | Board | Blocks on offer                        |
@@ -16,6 +16,9 @@ package com.pawplay.app.games.pawblocks
 object BlocksRamp {
     const val MAX_STAGE = 6
     const val TRAY_SIZE = 3
+
+    /** Free clear-outs a game gives (one paw each). They are never regained, bought or earned (docs/PRD.md story 64). */
+    const val START_PAWS = 3
 
     /** Cumulative clears at which stages 2..6 begin. */
     val stageStartsAfter: List<Int> = listOf(3, 8, 15, 24, 35)

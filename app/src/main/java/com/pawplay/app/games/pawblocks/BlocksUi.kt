@@ -40,6 +40,9 @@ internal class GrowFx(val start: Long, val from: Int, val to: Int) {
     val end get() = start + BlocksTiming.GROWTH_MS
 }
 
+/** The paw starts to fade 200ms into the clear-out's 900ms. */
+internal const val PAW_FADE_DELAY_MS = 200L
+
 internal fun easeOut(k: Float): Float = 1f - (1f - k.coerceIn(0f, 1f)).let { it * it * it }
 internal fun easeInOut(k: Float): Float {
     val t = k.coerceIn(0f, 1f)
@@ -51,7 +54,12 @@ internal fun easeInOut(k: Float): Float {
  * are playing. Plain Kotlin apart from two Compose state holders that tell the drawing to run again.
  * The pointer functions take positions in dp relative to the play area.
  */
-internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
+internal class BlocksUi(
+    val session: BlocksSession,
+    seed: Int = 11,
+    /** Told the new score after every legal placement; the screen saves the best from it the moment it is beaten (story 70). */
+    private val onScore: (Int) -> Unit = {},
+) {
     val tracker = DragTracker()
     var layout: BlocksLayout = blocksLayout(360f, 692f)
 
@@ -62,6 +70,12 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
     var grow: GrowFx? = null
     var trayInStart: Long = Long.MIN_VALUE
     var liftStart: Long = 0L
+
+    /** The paw that was spent by the latest clear-out (its index, 0 to 2) and when its 0.6s fade begins; -1 until the first clear-out. */
+    var pawFadeIndex: Int = -1
+        private set
+    var pawFadeStart: Long = 0L
+        private set
 
     /** The screen's frame time; the drawing reads this so it redraws every frame while something moves. */
     val frame = mutableLongStateOf(0L)
@@ -98,7 +112,14 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
             when (event) {
                 is SessionEvent.Grew -> grow = GrowFx(now, event.size - 1, event.size)
                 SessionEvent.Refilled -> trayInStart = now
-                is SessionEvent.ClearedOut -> outs += clearOutFx(now, event)
+                is SessionEvent.ClearedOut -> {
+                    outs += clearOutFx(now, event)
+                    // The paw fades from the same instant as the wash (t = 200ms of the 900ms), so the frames that
+                    // the clear-out effect keeps running cover the whole 0.6s.
+                    pawFadeIndex = event.pawsLeft
+                    pawFadeStart = now + PAW_FADE_DELAY_MS
+                }
+                is SessionEvent.GameEnded -> Unit // the screen reads session.phase and fades in the good-game screen
             }
         }
         drops.removeAll { now >= it.end }
@@ -114,6 +135,7 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
 
     /** A finger went down. True if it grabbed a tray block (only then does the game follow it). */
     fun onDown(id: Long, x: Float, y: Float): Boolean {
+        if (session.phase != BlocksPhase.PLAYING) return false // the game has ended kindly: nothing more to grab
         val slot = layout.slotAt(x, y)
         val hasBlock = slot >= 0 && session.slot(slot) != null
         if (!tracker.down(id, x, y, slot, hasBlock)) return false
@@ -170,12 +192,14 @@ internal class BlocksUi(val session: BlocksSession, seed: Int = 11) {
         if (shape == null) return
         val cell = displayCell(now)
         val pose = dragPose(shape, ended.slot, ended.x, ended.y, now)
-        val spot = if (drop) layout.dropSpot(session.board, shape, cell, ended.x, ended.y) else null
+        // A tap (the finger never really moved) is not a drop: the block goes home.
+        val spot = if (drop && !ended.wasTap) layout.dropSpot(session.board, shape, cell, ended.x, ended.y) else null
         val placed = spot?.let { session.place(ended.slot, it.row, it.col, now) }
         if (placed == null) {
             returns += ReturnFx(ended.slot, now, pose.x, pose.y, pose.s)
             return
         }
+        onScore(session.score)
         drops += DropFx(now, shape, placed.row, placed.col, pose.x, pose.y, pose.s)
         if (placed.cleared) lines += lineFx(now + BlocksTiming.DROP_MS, placed, session.board.size, cell)
     }

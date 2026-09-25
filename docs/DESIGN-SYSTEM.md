@@ -295,6 +295,7 @@ Every one of the 28 pairs is at least 1.33 (the closest are neighbours, so all o
 - **Ghost.** Shown only when a legal spot is within reach; cells filled `#4FC1E9` at 30%, outline `#1A8FCB` 3dp (measures 3.1 against an empty cell). On 7x7 and larger: fill 42%, outline 4.5dp, plus a 10dp `#4FC1E9` at 50% halo stroke under it. It jumps between spots with no animation, so what you see is what you get. No mark on the ghost.
 - **Snap reach.** Legal spot nearest to the drawn block's top-left, if within max(one board cell, 40dp); ties go to the spot nearer the fingertip.
 - **Drop, legal.** The block moves into its cells over 90ms, then a "plop": those cells scale 1 to 1.08 to 1 over 160ms (sine). Soft plop sound.
+- **Tap.** A finger that lifts having moved less than **12dp** from where it landed made a tap, not a drag: the block glides home (the tray is only 40dp under the board, so a block riding 64dp above a resting finger would otherwise snap onto the bottom row). Added 2026-09-26, see DECISIONS.
 - **Drop, illegal or interrupted.** Glides to its slot over 250ms (ease-out) shrinking to tray size. No sound, shake, red or count. The block can be grabbed again at once, mid-glide.
 
 ### Clear, clear-out and growth motion

@@ -10,9 +10,18 @@ sealed interface SessionEvent {
     /** All three tray slots were dealt again, together. */
     object Refilled : SessionEvent
 
-    /** Nothing in the tray fit, so the fullest [rows] were cleared quietly ([removed] is every cell that went). */
-    class ClearedOut(val rows: List<Int>, val removed: List<ClearedCell>) : SessionEvent
+    /**
+     * Nothing in the tray fit, so the fullest [rows] were cleared quietly ([removed] is every cell that went) and one
+     * paw was spent: [pawsLeft] is how many are left now (the paw at that index fades).
+     */
+    class ClearedOut(val rows: List<Int>, val removed: List<ClearedCell>, val pawsLeft: Int) : SessionEvent
+
+    /** Nothing in the tray fit and no paws are left: the game is over, exactly once. The screen shows the good-game screen. */
+    data class GameEnded(val score: Int) : SessionEvent
 }
+
+/** Whether the game is being played, or has ended kindly (story 65). Once over, a session never plays again: play again is a new session. */
+enum class BlocksPhase { PLAYING, GAME_OVER }
 
 /** What a legal placement did. [critter] is the animal that peeks up (a rotation index 0-5), only when a line cleared. */
 class Placed(
@@ -24,14 +33,17 @@ class Placed(
     val cols: List<Int>,
     val removed: List<ClearedCell>,
     val critter: Int?,
+    /** The points this placement added to the score (story 63), before the score's cap. */
+    val points: Int = 0,
 ) {
     val cleared: Boolean get() = rows.isNotEmpty() || cols.isNotEmpty()
 }
 
 /**
- * One sitting of Paw Blocks: the board, the tray of three, how many lines the child has made, and the
- * quiet things the game does by itself (grow the board, deal three new blocks, clear space). Session-only:
- * nothing is saved, a new session always starts on an empty 5x5 board at stage 1 (story 46).
+ * One sitting of Paw Blocks: the board, the tray of three, how many lines the child has made, the score, the three
+ * paws, and the quiet things the game does by itself (grow the board, deal three new blocks, clear space, and
+ * finally end kindly). Session-only: nothing here is saved (only the best score is, by the screen, through `data/`);
+ * a new session always starts on an empty 5x5 board at stage 1 with score 0 and 3 paws (stories 46 and 65).
  *
  * Time is passed in by the caller in milliseconds (the screen's frame clock, tests' virtual clock), so
  * the schedule below is deterministic and unit-tested without waiting:
@@ -42,14 +54,24 @@ class Placed(
  *    for any finger to lift, then takes 520ms.
  *  - **Refill** happens 500ms after the last of the three is placed and every animation has ended: all
  *    three slots at once, exactly once.
- *  - **Clear-out** happens 1000ms after his last move (and any animation) if none of the blocks left in
- *    the tray has a spot, and never while a block is being dragged.
+ *  - **Stuck** means none of the blocks left in the tray has a spot (story 45). 1000ms after his last move (and any
+ *    animation), never while a block is being dragged and never while the board is still growing: with a paw left
+ *    it clears the fullest rows and spends ONE paw (however many rows it takes); with no paw left the game ends
+ *    ([BlocksPhase.GAME_OVER], event [SessionEvent.GameEnded] exactly once). A fresh tray is never stuck (story 44).
+ *  - After the game has ended, [place], [tick] and [setHolding] do nothing.
+ *
+ * [bestBefore] is the saved best when this game began: [isNewBest] is `score > bestBefore` (equal is not new).
+ * [startScore] and [startPaws] exist for tests.
  */
 class BlocksSession(
     private val random: Random = Random.Default,
     startClears: Int = 0,
     startBoard: Board? = null,
     startTray: List<BlockShape?>? = null,
+    /** The saved best score when this game began; the good-game screen's "new best" compares against it. */
+    val bestBefore: Int = 0,
+    startScore: Int = 0,
+    startPaws: Int = BlocksRamp.START_PAWS,
 ) {
     var board: Board = startBoard ?: Board.empty(BlocksRamp.boardSizeFor(BlocksRamp.stageFor(startClears)))
         private set
@@ -59,6 +81,24 @@ class BlocksSession(
         private set
 
     val stage: Int get() = BlocksRamp.stageFor(clears)
+
+    /** The score (story 63): only ever goes up, never past [PawBlocksScoring.MAX_SCORE]. */
+    var score: Int = startScore.coerceIn(0, PawBlocksScoring.MAX_SCORE)
+        private set
+
+    /** Free clear-outs left (the paws on screen). Only ever goes down. */
+    var paws: Int = startPaws.coerceAtLeast(0)
+        private set
+
+    var phase: BlocksPhase = BlocksPhase.PLAYING
+        private set
+
+    /** When the game ended, on the caller's clock (0 until it does). */
+    var gameOverAt: Long = 0L
+        private set
+
+    /** True when this game's score beats the best from before it began. Equal does not. */
+    val isNewBest: Boolean get() = score > bestBefore
 
     private val trayMutable: Array<BlockShape?> = arrayOfNulls(BlocksRamp.TRAY_SIZE)
 
@@ -107,14 +147,15 @@ class BlocksSession(
 
     private val growthPending: Boolean get() = board.size < BlocksRamp.boardSizeFor(stage)
 
-    /** True while the session still has something it will do by itself: refill, grow or clear out. */
-    val hasPending: Boolean get() = isTrayEmpty || growthPending || isStuck
+    /** True while the session still has something it will do by itself: refill, grow, clear out or end. False once the game is over. */
+    val hasPending: Boolean get() = phase == BlocksPhase.PLAYING && (isTrayEmpty || growthPending || isStuck)
 
     fun canPlace(slot: Int, row: Int, col: Int): Boolean =
-        trayMutable.getOrNull(slot)?.let { board.canPlace(it, row, col) } ?: false
+        phase == BlocksPhase.PLAYING && (trayMutable.getOrNull(slot)?.let { board.canPlace(it, row, col) } ?: false)
 
-    /** A finger has picked a block up, or let it go. A clear-out or growth never starts under a held block. */
+    /** A finger has picked a block up, or let it go. A clear-out, growth or the ending never starts under a held block. */
     fun setHolding(value: Boolean, nowMs: Long) {
+        if (phase != BlocksPhase.PLAYING) return
         if (holding && !value) lastMoveAt = maxOf(lastMoveAt, nowMs) // a full second of peace after he lets go
         holding = value
     }
@@ -124,6 +165,7 @@ class BlocksSession(
      * returns null. A block can only be placed once: its slot is empty afterwards.
      */
     fun place(slot: Int, row: Int, col: Int, nowMs: Long): Placed? {
+        if (phase != BlocksPhase.PLAYING) return null
         val shape = trayMutable.getOrNull(slot) ?: return null
         if (!board.canPlace(shape, row, col)) return null
         val result = board.placeAndClear(shape, row, col)
@@ -137,11 +179,13 @@ class BlocksSession(
             busyUntil = maxOf(busyUntil, nowMs + BlocksTiming.DROP_MS + BlocksTiming.LINE_CLEAR_MS)
         }
         if (isTrayEmpty) trayEmptiedAt = nowMs
-        return Placed(slot, shape, row, col, result.rows, result.cols, result.removed, critter)
+        val points = PawBlocksScoring.placementPoints(result.rows.size + result.cols.size) // rows and columns each count as a line
+        score = PawBlocksScoring.add(score, points)
+        return Placed(slot, shape, row, col, result.rows, result.cols, result.removed, critter, points)
     }
 
     /**
-     * Lets the session do whatever is due at [nowMs]: grow, refill, clear out, in that order. Returns what
+     * Lets the session do whatever is due at [nowMs]: grow, refill, clear out or end, in that order. Returns what
      * it did (usually nothing). Cheap to call every frame.
      */
     fun tick(nowMs: Long): List<SessionEvent> {
@@ -165,13 +209,21 @@ class BlocksSession(
             events += SessionEvent.Refilled
         }
 
-        // Clear-out: nothing left in the tray fits; a second after his last move, with the board quiet.
+        // Stuck (nothing left in the tray fits): a second after his last move, with the board quiet and no block held.
+        // A paw left: clear the fullest rows and spend one paw. No paw left: the game ends, once.
         if (!holding && !growthPending && nowMs >= maxOf(lastMoveAt, busyUntil) + BlocksTiming.CLEAR_OUT_DELAY_MS) {
-            val out = GentleClearOut.clear(board, remaining())
-            if (out != null) {
-                board = out.board // clears never count toward the ramp
-                busyUntil = nowMs + BlocksTiming.CLEAR_OUT_MS
-                events += SessionEvent.ClearedOut(out.rows, out.removed)
+            if (paws > 0) {
+                val out = GentleClearOut.clear(board, remaining())
+                if (out != null) {
+                    board = out.board // clears never count toward the ramp and score nothing
+                    paws--
+                    busyUntil = nowMs + BlocksTiming.CLEAR_OUT_MS
+                    events += SessionEvent.ClearedOut(out.rows, out.removed, paws)
+                }
+            } else if (isStuck) {
+                phase = BlocksPhase.GAME_OVER
+                gameOverAt = nowMs
+                events += SessionEvent.GameEnded(score)
             }
         }
         return events

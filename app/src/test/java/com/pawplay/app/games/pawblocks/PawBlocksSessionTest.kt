@@ -8,8 +8,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.random.Random
 
-/** The session's timeline, refill rule, ramp and growth, clear-out, and a strategy-independent fuzz. */
+/** The session's timeline, refill rule, ramp and growth, clear-out (while paws last), and a strategy-independent fuzz. */
 class PawBlocksSessionTest {
+    /**
+     * The fuzz tests below check that the rescue (growth, refill, clear-out) always leaves a legal move. With the real
+     * 3 paws the game would end at some point (story 65), so they play with paws that cannot run out; the paws rule
+     * itself is in [PawBlocksScoreAndPawsTest].
+     */
+    private val PLENTY_OF_PAWS = 1_000_000
+
     private val dot = BlockShapes.dot
     private fun shape(id: String) = BlockShapes.byId.getValue(id)
 
@@ -185,7 +192,7 @@ class PawBlocksSessionTest {
 
     @Test
     fun `a refill is never the same trio twice in a row`() {
-        val s = BlocksSession(Random(12))
+        val s = BlocksSession(Random(12), startPaws = PLENTY_OF_PAWS)
         var now = 0L
         var previous = s.tray.filterNotNull().map { it.id }.sorted()
         repeat(60) {
@@ -226,6 +233,10 @@ class PawBlocksSessionTest {
         assertFalse(s.isStuck)
         assertEquals(3, s.tray.count { it != null }) // the tray is untouched
         assertEquals(0, s.clears) // and no progress is taken or given
+        assertEquals("one paw is spent", 2, out.pawsLeft)
+        assertEquals(2, s.paws)
+        assertEquals(0, s.score)
+        assertEquals(BlocksPhase.PLAYING, s.phase)
         assertEquals(1, s.stage)
         assertEquals(5, s.board.size)
         assertTrue(run(s, 6000, 20_000).isEmpty())
@@ -273,7 +284,7 @@ class PawBlocksSessionTest {
      */
     private fun fuzz(startClears: Int, seed: Int, moves: Int, preferLines: Double, stats: Stats) {
         val random = Random(seed)
-        val s = BlocksSession(Random(seed + 1), startClears)
+        val s = BlocksSession(Random(seed + 1), startClears, startPaws = PLENTY_OF_PAWS)
         var now = 0L
         var lastStage = s.stage
         while (stats.moves < moves) {
@@ -333,7 +344,7 @@ class PawBlocksSessionTest {
     fun `impatient play with the clock barely moving stays consistent`() {
         // Place the moment anything is legal, with the clock ticking only a little: animations pending all the time.
         val random = Random(77)
-        val s = BlocksSession(Random(78), startClears = 6)
+        val s = BlocksSession(Random(78), startClears = 6, startPaws = PLENTY_OF_PAWS)
         var now = 0L
         var placed = 0
         repeat(12_000) {
