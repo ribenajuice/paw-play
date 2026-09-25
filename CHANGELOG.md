@@ -34,3 +34,6 @@ Not in a build yet. These changes are on the Paw Pour, Paw Kitchen, Paw Trace an
 - Every block has its own colour and its own small picture on each square (a star, heart, drop, fish, leaf, bone, paw or moon), so children who can't tell colours apart can still play.
 - Three new blocks slide in together after all three are used. At least one always has a place to go. If the board still fills up so that none of the blocks left can be placed, it quietly sparkles the fullest rows clear after a moment. There is no message, no score, no counter and no "game over".
 - Paw Blocks has no sound yet, like the other games. Leaving for the home screen starts it again on an empty board.
+- Paw Blocks: if a swipe from the screen edge, a notification pull-down or an app switch interrupts a drag, the block now goes back to the tray instead of landing on the board.
+- Paw Blocks: the board is a little wider (nearly edge to edge), so the 9 by 9 board has bigger squares, and the three tray slots are moved in from the screen edges so the phone's back gesture does not clash with them. A block dropped into a row that is still sparkling away is no longer hidden under the old squares.
+
