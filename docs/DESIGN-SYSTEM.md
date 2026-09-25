@@ -309,6 +309,122 @@ Every one of the 28 pairs is at least 1.33 (the closest are neighbours, so all o
 ### Decisions awaiting founder OK (mockup review)
 Pink badge; the eight colours with star, heart, drop, fish, leaf, bone, paw and moon; the peek-up fox behind the board (rotating through the six critters); the quieter, animal-free clear-out look; tray blocks drawn smaller than board cells (46 down to 18dp); the block riding 64dp above the fingertip measured from its bottom edge.
 
+## Paw Pop: ship, stars, targets, gifts and effects
+
+Chrome is unchanged (cream background outside the game, white surfaces, ink, 56dp home button, 29dp tile corners). Inside the game the background is the sky below. Mockup: https://claude.ai/artifact/LCGGdCJVmwdWSJtAQu4cre (private; frame 3 is playable, and its raw HTML holds every path below as working code: `targetSvg`, `popSvg`, `shipSvg`, `giftIcon`, `ribbonSvg`, `waveSvg`, plus the whole game loop in `makeGame`). Everything is vector drawing, no bitmaps. Sizes are dp on the reference 360 x 800dp phone (the PRD's "sh" = 800dp); speeds below are the PRD's sh/s figures times 800. The mockup's play area is 360 x 692, so its pixel positions differ from the phone's but every dp size is the same.
+
+### Home tile and badge
+- Sixth tile, icon only, white 146dp tile as the others: teal **oval balloon** (size 50, ladder colour Teal, centre (104, 46)), a **star** (outer radius 14, tilted 12 degrees, centre (62, 48)) with two small sunshine sparkles (radius 4.6 at (76, 72), 3.2 at (54, 76)), and the **ship** at 72dp box, centre (50, 100). The star is on its way up to the balloon.
+- Badge: **teal `#0F9D94`** with a white paw, same bottom-end corner and 22.6dp size as the others (Match = sunshine, Pour = sky, Kitchen = coral, Trace = grape, Blocks = pink, Pop = teal; leaf stays unused because it means "done"). White on it measures 3.35. It is a badge colour, not a theme token.
+- Six games shelve 2 + 2 + 2 (three rows of 146dp with 20dp gaps = 478dp), so the last row is full and no longer centred.
+
+### Sky (game background)
+Vertical linear gradient over the play area, `#B7D6F4` at the top to `#DCEBF8` at the bottom (luminance 0.65 to 0.81). Decoration only, static: six clouds (three white ellipses at 45%: rx 40 / ry 14 at the centre, rx 26 / ry 11 at (-22, +4), rx 24 / ry 10 at (+26, +4), scaled 0.7 to 1.15) and nine 2.2dp white dots at 80%. Nothing in the sky twinkles, moves or resembles a target. The home button is drawn last, on top of everything.
+
+### Target colours (content colours, not theme tokens)
+Six, light to dark. Stage 1 uses Butter, Tangerine, Teal (the widest apart); stage 2 adds Blush and Berry; stage 3 onward all six.
+
+| # | Name | Hex | Luminance | Ratio to the one above |
+|---|---|---|---|---|
+| 1 | Butter | `#FFE58A` | 0.791 | (lightest) |
+| 2 | Blush | `#FF9FC4` | 0.500 | 1.53 |
+| 3 | Tangerine | `#F2852F` | 0.359 | 1.35 |
+| 4 | Lilac | `#9B6BE0` | 0.229 | 1.47 |
+| 5 | Teal | `#0A7873` | 0.147 | 1.41 |
+| 6 | Berry | `#A31C55` | 0.093 | 1.38 |
+
+Every one of the 15 pairs is at least **1.3** (weakest: Blush / Tangerine 1.35; all other pairs are neighbours or further apart). These were worked by hand and the mockup page recomputes all of them from the hexes live; if a unit test (add `PawPopColorsTest`, like `PawPourRobustnessTest`: pair ratios, no two share a silhouette) disagrees, the test wins and only lightness moves, never hue. No colour means anything: any colour can wear any silhouette.
+
+**Against the sky.** No colour can be far from a mid-toned sky, so every target has a **rim**: ink `#2B2320` at 45%, 3dp wide, `vector-effect`-style constant width, round joins (in Compose: a `Stroke(3.dp)` in ink at alpha 0.45 drawn over the shape edge). Fill against sky top / bottom: Butter 1.21 / 1.03, Blush 1.27 / 1.57, Tangerine 1.71 / 2.11, Lilac 2.50 / 3.10, Teal 3.53 / 4.38, Berry 4.88 / 6.05. The lightest colours are carried by the rim: the rim colour (fill mixed 55% with ink 45%) measures 2.14 (Butter) against the sky top, 2.65 against the bottom, higher for every other colour. So the rim must never be dropped.
+
+### Silhouettes (drawing recipes)
+All five are drawn in **local units of S/100**, origin at the body centre, y down, where **S is the nominal width** (the drawn width, 88 to 112dp; 72 for the stage-5 small ones). Compose: `translate(cx, cy)` then `scale(S / 100f)` on the canvas, and draw the paths below unchanged. Shared parts: rim as above; **shine** = a white ellipse at 55% (round: `cx -20 cy -25 rx 15 ry 8`, rotated -38 degrees about its centre, plus a white 50% dot `cx -34 cy -4 r 3.6`; others below); **string** = 1.6dp constant width ink at 50%, round caps, no fill; **knot** = small triangle in the body colour with the rim.
+
+| Silhouette | Body | Extras | Hit ellipse (fractions of S: rx, ry, dx, dy) | Half height |
+|---|---|---|---|---|
+| Round bubble | circle r 50 | no string | 0.50, 0.50, 0, 0 | 0.50 |
+| Oval balloon | ellipse rx 50 ry 62 | knot `M0,60 L-8,75 L8,75Z`; string `M0,74 C-7,82 7,90 0,98 C-5,104 4,108 1,112`; shine ellipse `-22,-30 rx 10 ry 22` rotated 20 | 0.50, 0.62, 0, 0 | 0.62 |
+| Heart balloon | `scale(1.11) translate(-50 -50)` then `M50,92 C-6,56 -4,14 26,10 C40,8 50,18 50,28 C50,18 60,8 74,10 C104,14 106,56 50,92Z` | knot `M0,44 L-7,58 L7,58Z`; string `M0,56 C-7,64 7,72 0,80 C-5,86 4,90 1,94`; shine ellipse `-27,-30 rx 10 ry 5` rotated -35 | 0.46, 0.45, 0, -0.02 | 0.47 |
+| Moon balloon | `translate(-50 -50)` then `M59.5,0.9 A50,50 0 1 0 96.7,67.9 A40,40 0 1 1 59.5,0.9Z` (a circle r 50 with a circle r 40 at (68, 40) taken out) | knot `M0,48 L-7,62 L7,62Z`; string `M0,62 C-7,70 7,78 0,86 C-5,92 4,96 1,100`; shine ellipse `-38,-12 rx 5.5 ry 17` | 0.38, 0.50, -0.12, 0 | 0.50 |
+| Critter bubble | ears (below), then circle r 50 in the body colour, then a paper disc r 40 `#FFF8EC` at 95%, then the face | shine ellipse `-31,-33 rx 9 ry 4.5` rotated -35 (white 60%); no string | 0.50, 0.50, 0, 0 | 0.50 (ears reach 0.66 above; bunny 0.87) |
+
+Draw order for oval, heart and moon: string, knot, body, shine (the body covers the knot's base). A target's box is never wider than S; the string (about 0.5 S below the body) is not part of the hit shape.
+
+**Critter parts** (same units; rim = ink 40%, 2dp constant width, round joins). Ears/eyes poke out of the bubble and are drawn first, so the silhouette differs from the round bubble in greyscale:
+- Fox: ears `-40,-24 -38,-66 -10,-46` and the mirror, `#D9722C`. Head circle at (0, 6) r 26 `#F0924A`, muzzle ellipse (0, 16) 13 x 9 `#FBEBD8`.
+- Bear: ear circles r 15 at (+-34, -36) `#8A5A34`. Head `#A9754A`, muzzle `#E7CBA6`.
+- Bunny: ear ellipses rx 10 ry 27 at (+-19, -60), rotated -+8 degrees, `#EDE3D8`, inner ellipse rx 4.5 ry 18 `#FFB8CC`. Head `#F1E8DD`, muzzle `#FFFFFF`, nose `#FF8FA8`.
+- Frog: eye bumps r 15 at (+-24, -42) `#7FBF6B`, drawn first; after the paper disc, eye whites r 8 at (+-24, -44) and pupils r 4 at (+-24, -43). Head `#7FBF6B`, muzzle `#DFF2D6`, nostrils r 1.6 at (+-5, 9), no eyes on the head.
+- Face (fox, bear, bunny): eyes r 3.4 ink at (+-9, 2); nose triangle `0,10 -4,15 4,15` ink (bunny `#FF8FA8`); mouth `M-6,19 Q0,24 6,19` 1.8dp ink. Happy face (used in the pop): eyes `M-14,3 Q-9,-4 -4,3` and `M4,3 Q9,-4 14,3` 2.6dp ink, open mouth `M-7,18 Q0,28 7,18Z` `#B8301F`, cheeks r 4 at (+-17, 14) `#FF8FA8` 70%. Frog happy eyes: `M-31,-44 Q-24,-52 -17,-44` and `M17,-44 Q24,-52 31,-44`.
+
+**Sizes and placement.** Stage 1: 104-112 (round only); 2: 96-104; 3: 96-104; 4: 88-104; 5: 88-104 plus about one in five at 72. Sway is +-16dp, +-24dp at stage 5, one full sway per 3 s (`x = x0 + amp * sin(2 pi t / 3 + phase)`). A new target appears just above the top edge at least 12dp clear of every other (measured to the drawn edge; the mockup's stage-5 frame checks this live). Two swaying targets that briefly overlap simply pass over each other (older is behind); nothing reacts. The first target of a session appears already partly on screen.
+
+**Hit.** A star counts as a hit when its centre is within 8dp of the drawn edge, tested against the hit ellipse in the table (centre = body centre + (dx, dy) * S; radii = fractions * S) grown by 8dp. Big-star hit: grown by 28dp instead. The ribbon hits any target whose ellipse overlaps its 56dp column above the ship.
+
+### Star (the shot)
+5-point polygon on a 100 grid centred on the origin: outer radius 50, inner radius 22, first point straight up, drawn at **28dp across (outer radius 14)**; fill sunshine `#FFD23F`, 2dp constant-width rim `#D99A00`, round joins, a white 55% copy scaled 0.4 and shifted (-7, -7) as a shine. Big star: same drawing at 56dp across. It rises at **720 dp/s** (0.9 sh/s), starting at the ship's nose, and is removed 30dp past the top edge (a tiny sparkle twinkle at the top is optional). Fired every 0.4 s. Triple: three stars, angles 0 and +-12 degrees, sideways speed 720 tan 12 = 153 dp/s, each drawn tilted by its angle. The star is also the game's sparkle-free glyph: it is never used for anything but the shot and the star gifts (no score, no count).
+
+### The ship
+Drawn on a 100 x 100 grid at an **88 x 88dp box** (fins span x 8 to 92 = **74dp across**, over the 72dp minimum). Its bottom edge is 24dp above the bottom edge of the screen and above any gesture bar; its centre x follows the finger (clamped so the fins stay 8dp clear of each side: centre x in [46, 314] on 360dp). Ship speed: eased, at most 540 dp/s (1.5 screen widths a second); the mockup uses `v = clamp(dx * 7, -540, 540)`.
+Parts, in order (rim = ink 40%, 1.6dp constant width, round joins, on the fins, body and window):
+1. **Flame** `M50,78 C41,86 44,94 50,100 C56,94 59,86 50,78Z` sunshine `#FFD23F` with an inner `M50,81 C46,86 47,91 50,95 C53,91 54,86 50,81Z` `#FFF6C7`; it scales vertically about y 78 between 0.92 and 1.08 once per second (sine).
+2. **Fins** (coral `#FF6B4A`) `M28,52 C14,56 8,66 8,82 C20,82 28,78 33,70Z` and the mirror `M72,52 C86,56 92,66 92,82 C80,82 72,78 67,70Z`.
+3. **Body** `M50,4 C72,16 80,44 76,78 L24,78 C20,44 28,16 50,4Z` white; the strip y 0..28 (nose) and the strip y 68..78 (band) are filled coral `#FF6B4A` clipped to the body path; then the body outline with the rim.
+4. **Window:** circle (50, 48) r 16 `#DFF3FB`, 3dp white ring, rim; inside it (clipped to r 14) the Paw Match fox face, drawn 30 x 30 at (35, 34).
+
+**Glow states.** None while nothing runs. A star effect (triple, big, ribbon) draws three flat circles under the ship, no blur: radii 62, 52, 44dp, sunshine `#FFD23F` at 16%, 24%, 34%. Slow drift draws the same three at radii 76, 66, 58 in lilac `#B79BF0` (drawn first, so both show when both run). The sparkle wave has no glow. Centre of the circles = ship centre.
+
+### Sparkles, pop and ring
+Sparkle = four-point star `M0,-1 Q0.18,-0.18 1,0 Q0.18,0.18 0,1 Q-0.18,0.18 -1,0 Q-0.18,-0.18 0,-1Z` scaled by its radius, fill sunshine `#FFD23F` or white, 0.13-unit rim `#E8A400` at 55%.
+**Pop** (t = 0 when the star touches; total 0.35 s; the target is removed from play at t = 0, the picture just finishes):
+- Body: scale 1 to 1.06 by 60 ms, then down to 0.94 by 170 ms; opacity `1 - (t/170)^2`, gone at 170 ms.
+- Ring: from t = 20 ms to 350 ms, radius `S * (0.5 + 0.38 * easeOut(k))`, `k = (t - 20)/330`, opacity `0.85 * (1 - k)`; two circles: white 5.5dp underneath, the target's own colour 2.5dp on top.
+- Sparkles: seven, angles `12 + 360 i / 7` degrees, distance `S * (0.34 + 0.42 * easeOut(k))`, radius `(5 + 4.5 * (i mod 2)) * sin(pi k)`, alternating sunshine and white. They grow and shrink smoothly (never blink); nothing goes further than 0.9 S from the centre.
+- Critter: same, and from t = 60 ms the animal (ears at 0.8 scale, face group at 1.4 scale shifted up 6, happy face; no bubble) fades in over 100 ms, hops `16 * sin(pi * min(1, t/220))` dp up, and floats up `50 * easeOut(t/600)` dp in total, fading out from 360 to 600 ms. Total 0.6 s.
+`easeOut(k) = 1 - (1 - k)^3`. If a pop would take the sparkle count over 60 it pops without sparkles.
+
+### Misses
+Target opacity = `clamp((H - y) / (0.1 * H), 0, 1)` with y = its centre and H the screen height: it is fully opaque until 0.1 H above the bottom and gone as its centre reaches the bottom edge. It is drawn **behind** the ship and stars; no bounce, wobble, sound, counter or colour change of anything else.
+
+### Carriers and gifts
+- **Carrier shell:** round bubble or oval balloon only (S at least 96 so the gift is at least 48dp; the moon and critter have no room). Inside it, over the body centre: sunshine halo r 44 units at 10 to 24% and r 39 units at 18 to 38% (swelling once per 1.6 s: `0.5 + 0.5 sin(2 pi t / 1.6 + 1)`), a white disc r 34 units with a 2dp sunshine rim, and the gift picture at **0.5 S** across (bobs `2.5 sin(2 pi t / 1.6)` units up and down).
+- **Gift pictures** (100 grid, centred; ink rim 40% at 2dp constant width where noted):
+  - Triple star: three sunshine stars (outer radius, centre): 25 at (50, 30), 19 at (22, 66) tilted -14, 19 at (78, 66) tilted +14.
+  - Big star: one sunshine star radius 44 at (50, 52), sparkles radius 9 at (86, 16) and 6 at (14, 86).
+  - Rainbow ribbon: four semicircle arcs about (50, 74), radii 36, 28, 20, 12, 8 wide, round caps, colours `#FF7A70`, `#FFD23F`, `#6FD08C`, `#4FC1E9`; an ink 30% under-stroke 10.5 wide beneath all four.
+  - Slow drift (snail): body rounded rect x 12 y 62 w 78 h 15 rx 7.5 `#F6B57A`; head circle (20, 56) r 11; two stalks `M16,47 L13,33` and `M26,46 L29,32` (4 wide) ending in white eye circles r 4.4 at (13, 31) and (29, 30); shell circle (58, 52) r 24 `#9B6BE0` with a white 3-wide spiral `M58,52 c0,-4 6,-4 6,0 c0,8 -12,8 -12,0 c0,-12 18,-12 18,0 c0,15 -24,15 -24,0`; smile `M15,60 Q20,64 25,60`.
+  - Sparkle wave: sine `M8,64 C18,44 30,44 40,64 C50,84 62,84 72,64 C77,54 84,50 92,52` in sky `#28A9E3`, 9 wide, round caps, ink 30% under-stroke 13 wide; three sunshine sparkles radius 10 at (26, 26), 8 at (62, 22), 6 at (86, 34).
+  Each picture is a different shape in greyscale.
+- **Release:** at the moment of the pop the gift is revealed at the carrier's centre and flies free: **48dp**, drawn as a white disc r 28 (ink 30% rim, 1.5dp) with a sunshine 2.5dp ring at r 25, sunshine halos r 34 (26%) and r 40 (14%), the picture 44dp across. It glides for **0.6 s** along a quadratic curve from P0 (carrier centre) to P1 (ship nose: ship centre x, box top minus 4), control point C = (x0 + 0.2 (x1 - x0), y0 - 26), position parameter `e = easeInOutQuad(t / 0.6)` (`2k^2` below half, `1 - 2(1-k)^2` above). P1 follows the ship if it moves. A trail of three ghost copies (60% size, 24 to 44% opacity) follows it. It fades to about 60% over the last 15%.
+- **Arrival:** a ring (white 5dp and sunshine 2.5dp, radius 30 growing to 60dp, fading 80% to 0 over 0.6 s) and six sparkles (radius 8 and 6, distance 34 to 60dp from the ship, `sin(pi k)` envelope) around the ship's nose, and the effect starts. No sound cue exists yet (the whole game is silent).
+
+### Effects (per gift)
+| Gift | Duration | Look |
+|---|---|---|
+| Triple star | 8 s | Three stars per shot (angles 0, +-12); ship sunshine glow. |
+| Big star | 8 s | 56dp stars, each with a trail of three copies behind it (radius 0.5, 0.4, 0.32 of the star, at 30%, 18%, 9%, spaced about 34dp), flying through targets; ship sunshine glow. |
+| Rainbow ribbon | 6 s | A column 56dp wide (five equal stripes 11.2dp: `#FF8A80`, `#FFD23F`, `#8FDDA0`, `#5CC8F0`, `#B49AF0` at 92%) on a white 62dp band at 70%, from the ship's nose up to the top, swaying `5 * sin((y/140 + 0.35 t) 2 pi)` dp sideways; it grows from the nose at 1200 dp/s. While it runs it **replaces the stars** (they would be hidden in it). Ship sunshine glow. |
+| Slow drift | 8 s | Every target gets two soft lilac ellipses behind it, `#B79BF0`: body ellipse grown by 0.18 S at 16% and by 0.09 S at 26%; targets drift at half speed; ship lilac glow. Runs alongside any of the others. |
+| Sparkle wave | instant, about 1.5 s | A wavy band across the full width, centre line `y0 + 11 sin(2 pi x / 96 + 3 t)` dp, drawn as three round polylines (46dp white 16%, 28dp sunshine 30%, 10dp white 80%) with ten sparkles (radius 5 to 9) riding on it; it rises from just below the ship's nose to above the top edge in about 1.5 s (about 490 dp/s) and pops each ordinary target as its centre is reached (only if at least one ordinary, non-carrier target was on screen when the gift arrived; otherwise the band still glitters and pops nothing). Carriers do not count and are skipped. No glow. |
+Replacement and stacking follow story 59.
+
+### Breathing glow (last 2 seconds)
+With `remaining` seconds left on a glow, glow opacity is multiplied by `b(remaining)`: `b = 1` while `remaining > 2`; then with `tau = 2 - remaining`: `0.675 + 0.325 cos(2 pi tau)` for `tau < 1.75` (a one-second breath between 100% and 35%: full, dimmest, full, dimmest), then `0.675 * (2 - tau) / 0.25` over the last quarter second so it fades away rather than switching off. Nothing else changes; no numbers. Applies separately to the star-effect glow and to the slow-drift glow.
+
+### On-screen limits and flicker
+At most **8 targets, 15 stars, 60 sparkles, 1 gift in flight** (a new one that would exceed a limit is not created; a target spawn is retried 0.3 s later). Nothing flashes or blinks faster than 3 times a second: the fastest periodic motions are the flame (1 s), the glow breath (1 s), the carrier's swell and bob (1.6 s) and sparkle envelopes (0.33 s, each once).
+
+### Layout facts (360 x 692dp mock play area)
+Home button 56dp at (20, 20). Ship box y 580 to 668 (nose at 580). Stage 1 (frame 2) has four bubbles 104-112dp; stage 5 (frame 4) has eight targets above y 522, the ship's column clear from y 456 down, and the smallest gap between any two targets about 22dp (the mockup measures it live).
+
+### Implementation notes (2026-09-25, from building it)
+No new tokens were needed. Where the build chose a number the design left open: the sky fills the play area inside the system bars (cream shows behind the bars, as in the mockup); the heart and moon paths are stored already centred (heart scaled 1.11) so the 3dp rim keeps its true width; the 3dp, 2dp and 1.6dp rims and strings are constant on screen for every whole-dp size 40 to 119 (stroke widths are made once per size); strokes inside the gift pictures are a fixed 4 units of the 100 grid (2dp at a carrier's 0.5 S), and the stars inside a gift use a fixed 7.14 rim (in star units) instead of a constant 2dp; a big star's rim is 2dp and its three ghosts sit 34, 68 and 102dp behind it; the ribbon pops a target whose ellipse centre is within `28 + 0.9 rx` of the ship's column and whose centre is above the nose; the wave's ten riding sparkles are spread across the width (not fixed at 36dp steps) and count against the 60-sparkle limit, as do the pop's seven and the arrival's six (a pop over the limit plays its ring without sparkles); the ship's fin reach is 38dp and its centre is kept in [46, width - 46]; a first target's body bottom starts 40dp down so it is already partly in view. Sound is not part of the build (pop and gift sounds are unmet pending the founder's app-wide decision).
+
+**After review (2026-09-25):** the wave's arrival condition became "at least one ordinary target on screen" (from "3 or more", which left it popping nothing in about 9 of 10 arrivals). The sky is its own still layer with its gradient cached, and per-frame drawing reuses its strokes and layer bounds. The ribbon uses fewer than one point per 10dp on a very tall play area so it always reaches the top. Drawing phases (flame, carrier bob, ribbon sway, wave) are wrapped in double so a long session keeps its precision.
+
+### Decisions awaiting founder OK (mockup review)
+Teal badge; pale sky (not dark space); the six colours including deep Teal and Berry; the white-rocket-with-fox ship; critter ears/eyes poking out of the bubble to make its silhouette distinct; carriers limited to round bubbles and oval balloons (narrows the PRD's "any target"); the ribbon replacing the stars while it runs; slow drift shown as a lilac halo on every target; missed targets only fade (no bounce).
+
 ## Hard rules
 - Every screen designed for a phone held one-handed by small hands, landscape or portrait per the game's needs.
 - Touch targets ≥48dp; generous spacing between anything tappable.
