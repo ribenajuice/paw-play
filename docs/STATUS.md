@@ -2,10 +2,16 @@
 
 *Updated at the end of /kickoff, /feature, /ship, /deploy, and /status runs. This is the first file to read when resuming work.*
 
-- **Last updated**: 2026-09-24
-- **Phase**: building milestone 1 — hub shell + Paw Match built and compiling in CI; still not verified on a real device
-- **Latest build**: CI build on main (2026-09-24, run 35945563222) succeeded and produced a `release-build` download. Signing keystore isn't set up, so it's an unsigned/test build. No evidence it's been installed on the founder's phone yet.
-- **Currently in flight**: 4 Dependabot PRs (#1–#4), all routine version bumps to the build tooling. Nothing else.
-- **Blocked on founder**: nothing blocking. Still worth a first playtest on-device (card size, mismatch timing, difficulty ramp, the grid with more tiles).
-- **Housekeeping**: Dependabot is set to watch an `npm` ecosystem this project doesn't have (its last run failed); safe to remove that block from `.github/dependabot.yml`.
-- **Next up**: install the CI build on a phone and play through Milestone 1's acceptance criteria; then `/feature` the second game (Milestone 2).
+- **Last updated**: 2026-09-25
+- **Phase**: building milestone 2 — Paw Pour built on `feat/paw-pour` and unit-tested in code, but not yet confirmed by a real Gradle build or on a phone. Milestone 1 (hub + Paw Match) is on `main` and compiles in CI; it has still not been verified on a real device.
+- **Latest build**: none verified yet for this branch. The last CI build on `main` (2026-09-24, run 35945563222) succeeded and produced a `release-build` download (unsigned test build, no signing keystore yet), but it does not include Paw Pour. A real Gradle build of `feat/paw-pour` and an on-device playtest are both still pending.
+- **Currently in flight**:
+  - PR #7: Paw Pour (draft).
+  - Paw Kitchen: built on `feat/paw-kitchen`, awaiting QA.
+  - Paw Trace and Paw Blocks: specs approved, awaiting build.
+  - The branches are stacked: `feat/paw-pour` -> `feat/paw-kitchen` -> `feat/paw-trace` -> `feat/paw-blocks`. Each one builds on the one before, so PR #7 has to land first.
+- **Blocked on founder**:
+  1. Sound. The specs mention pour, chime and happy sounds, but every game ships silent, like Paw Match. One app-wide decision is needed. Default if no answer: stay silent.
+  2. Confirm Paw Pour behaves as you want on a real phone.
+  3. On newer phones, the edge-to-edge screen may put the system bars over the home button. This is already true of Paw Match. It needs a separate fix.
+- **Next up**: founder reviews PR #7 and plays Paw Pour on a device.

@@ -35,10 +35,40 @@ This is a **hub app**: one home screen showing a shelf of game tiles (icons only
 
 Difficulty is **session-scoped, not saved**: leaving Paw Match for the home screen and tapping back in starts over at 3 pairs (consistent with the no-persistence decision in `docs/DECISIONS.md`). No numeric level indicator — the grid getting visibly bigger is the only signal a toddler needs; reading a number isn't required anywhere.
 
-### Milestone 2 — Second game on the shelf
-<!-- Sketch only; detail when Milestone 1 ships. -->
-- One more mini-game added to the home screen shelf (candidate: a shape/color sorting game — genre and theme TBD when we get there).
-- Confirms the "adding a game" path from `docs/ARCHITECTURE.md` actually stays a pure addition — no changes needed to Paw Match or the home screen shell to add it.
+### Milestone 2 — Second game on the shelf: Paw Pour
+*A liquid-pouring sort puzzle (the founder's son already likes the genre). Working name **Paw Pour**, chosen by the team at the founder's request; renaming is a content-only change. Also proves the "adding a game" path in `docs/ARCHITECTURE.md` is a pure addition: a new game package plus one `GameCatalog` line, with no changes to Paw Match or the hub shell.*
+
+Vocabulary: a **tube** holds a stack of coloured **bands**; a **pour** moves the top colour from one tube to another.
+
+| # | Story | Acceptance criteria | Status |
+|---|---|---|---|
+| 9 | As a toddler, I want a new picture tile on the home screen for the pouring game, so that I can find it and start | Given the home screen, when it renders, then a second icon-only tile (tubes with coloured liquid) appears next to Paw Match; tapping it opens Paw Pour straight into round 1, with no text, dialog or loading screen. Adding it required no change to Paw Match or the home screen beyond the tile | ☐ |
+| 10 | As a toddler, I want to tap a tube and see it react, so that I know I picked it up | Given a tube with liquid, when I tap it, then it lifts and glows; tapping it again puts it back down; tapping an empty tube first does nothing. Only one tube is selected at a time. Tapping a different tube while one is selected is a pour attempt (story 11/12): if legal it pours, otherwise the target wobbles and the selected tube sets back down; it never switches the selection directly | ☐ |
+| 11 | As a toddler, I want to tap a second tube to pour into it, so that I can sort the colours without dragging | Given a tube is selected, when I tap a target tube where the pour is legal, then the top colour flows across with a soft pour animation and sound, and the source tube goes back down. **Legal pour**: the target is empty or its top band is the same colour, and it has room. The whole run of matching top bands moves as far as the room allows. A pour that changes nothing useful (emptying a tube that is already a single colour into an empty tube) counts as not legal | ☐ |
+| 12 | As a toddler, I want a wrong tap to be gentle, so that I'm never scolded for trying | Given a tube is selected, when I tap a target where the pour is not legal (different colour, or full), then the target gives a tiny wobble and the selected tube sets back down. There is no error sound, no red, no penalty, and no count of wrong tries | ☐ |
+| 13 | As a colour-blind child, I want each colour to also have its own simple mark, so that I can tell colours apart without seeing hue | Given any round, when bands are drawn, then every colour carries a distinct large pattern or shape mark (e.g. dot, stripe, star, heart), and no two colours in the game share a mark. Also, colours differ enough in brightness that they stay distinguishable in greyscale. Marks are pictures, never letters or numbers. (Colours are on-screen only; the ui-designer picks the set.) | ☐ |
+| 14 | As a toddler, I want every round to be finishable, so that I can never get truly stuck by the game's own fault | Given any round the game starts, then it can be solved from its starting position, never starts already solved, and never starts with a tube that is already complete. Bands are mixed up so each round is a real puzzle | ☐ |
+| 15 | As a toddler, I want to know when I've finished, so that it feels complete | Given every colour is gathered into one full tube (every non-empty tube is full and a single colour; a colour split across two part-full tubes is not yet a win), when the last pour lands, then a full-screen "you did it!" celebration (same look and pattern as Paw Match) appears with one large play-again icon button and one large home icon button. Finishing one tube may also get a small sparkle | ☐ |
+| 16 | As a toddler, I want the next round to be a bit bigger, so that it stays interesting | Given I tap play again, when the next round starts, then it follows the ramp table below and never exceeds the cap. Round 1 has 6 tubes. The round resets to round 1 when I leave to the home screen and come back (session-only, nothing saved); no number or level is shown | ☐ |
+| 17 | As a toddler, I want the game to quietly fix things if I paint myself into a corner, so that I never lose or see a failure | Given a position where the round can no longer be finished (see "Stuck" below), when it happens, then after a short pause the last pour(s) gently un-pour with a soft animation back to the latest position that can still be finished, and play continues. No message, no failure sound, no icon, no counter. Nothing the child does can end a round except finishing it | ☐ |
+| 18 | As a parent, I want the standing rules to hold in this game too, so that I never have to watch | Given any Paw Pour screen, then there is no text needed to play, no timer, no score, no moves counter, and no ad, purchase, login or external link (standing rule, see `CLAUDE.md`). Mashing the screen or multi-touch during a pour never breaks the game; extra taps mid-animation are simply ignored | ☐ |
+
+**Difficulty ramp** (tube capacity = bands per tube; every colour has exactly that many bands, so a finished tube is always full; always 2 spare empty tubes except round 1):
+
+| Round | Tubes | Colours | Capacity | Empty at start |
+|---|---|---|---|---|
+| 1 | 6 | 3 | 3 | 3 |
+| 2 | 6 | 4 | 3 | 2 |
+| 3 | 7 | 5 | 3 | 2 |
+| 4 | 8 | 6 | 3 | 2 |
+| 5 | 8 | 6 | 4 | 2 |
+| 6 and up (cap) | 9 | 7 | 4 | 2 |
+
+Rationale: round 1 has three spare tubes so a 2-year-old can succeed almost by accident; each step adds one thing at a time. The cap is 9 tubes so all tubes fit on a phone screen with no scrolling and touch targets of at least 48dp. Seven colours is the most that each get a clearly distinct colour plus mark.
+
+**Stuck, in player terms:** the child cannot finish the round from where they are. That covers "no legal pour remains" and also "pours exist but they only shuffle things around and the round can no longer be won". The game notices after the child's pour lands, waits about a second so they see what they did, then rewinds.
+
+**Out of scope for Milestone 2 (v2):** a manual undo or restart button (auto-undo covers it), hints, per-tube themes, saved progress, more than 9 tubes, and any sound/music setting.
 
 ### Milestone 3 — More to explore
 <!-- Sketch only. -->
