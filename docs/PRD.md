@@ -230,5 +230,3 @@ Rationale: the whole game is at most about 8 slow objects, the fastest thing tha
 ## Open questions
 - None blocking Milestone 1. App name defaulted to **Paw Play** (the hub) with **Paw Match** as the first game inside it — founder can redirect either name at any time; it's a content change, not an architecture one.
 - Card theme for Paw Match itself defaulted to friendly animals — same, a pure content swap.
-- **Paw Pop, gifts (story 58):** you said power-ups are "released when popped". Default: the released gift glides to the ship by itself, so a small child can never miss one. Alternative: he has to slide the ship under the falling gift (more skill for a 5-year-old, but a missed gift is a silent "you lost"). Confirm the default, or say if you want the catch version.
-- **Paw Pop, busiest stage (story 60):** at most 8 slow bubbles on screen after about 3 to 6 minutes of good popping (table above). Default: as written. Say if you want it calmer or livelier for him; it is a one-line change.
