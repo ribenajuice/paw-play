@@ -209,6 +209,106 @@ The full data lives in `docs/glyphs/paw-trace-glyphs.md` (id, stage, strokes as 
 ### Decisions awaiting founder OK (mockup review)
 Grape for the tile badge and every glyph's paint; a frog as the marker (alternative: plain glowing dot); paw prints as the direction cue instead of arrows; pale lavender guide with an outline and dotted centre; one big green paw button on the celebration with home staying in its corner; the letter, digit and shape drawings (capital I with bars, closed 4, flagged 1).
 
+## Paw Blocks: board, blocks, marks and clears
+
+Chrome is unchanged (cream background, white surfaces, ink, 56dp home button, 29dp tile corners). Mockup: https://claude.ai/artifact/3FwMKpnXaG8oKN6zrWmtQV (private; frame 3 is playable, and its raw HTML holds exact geometry and every mark's path). Everything below is on a 360 x 692dp play area; sizes are dp.
+
+### Home tile and badge
+- Fifth tile, icon only, drawn on a 3 x 3 patch of the board: cells 32dp, patch 96dp, top-left at (25, 25) inside the 146dp tile. Empty cells as on the board; the **Tangerine square** fills columns 0-1 of rows 0-1, the **Bubblegum bar of 2** fills columns 0-1 of row 2, column 2 shows a sky ghost (3 cells, `#4FC1E9` at 22%, 2.5dp `#1A8FCB` outline) and a **Sky bar of 3 (vertical)** hovers over it, lifted 13dp, moved 7dp right, tilted 6 degrees, with the block shadow.
+- Badge: **bubblegum pink `#F2599B`** with a white paw, same bottom-end corner and 22.6dp size as the others (Match = sunshine, Pour = sky, Kitchen = coral, Trace = grape, Blocks = pink; leaf stays unused because it means "done"). White on it measures 3.1. It is a badge colour, not a theme token, and is deeper than the Bubblegum block `#FF9ACB`.
+- Five games shelve as 2 + 2 + 1 with the odd tile centred; tiles stay 146dp (three rows = 478dp with 20dp gaps).
+
+### Board
+| Element | Spec |
+|---|---|
+| Panel | **348 x 348dp** on a 360dp phone (width minus 12, so 6dp from each side, never wider than 348 on any phone), left 6dp, top 96dp, white, radius 20, 3dp edge `#EADFCF`. Inner grid 340 x 340dp at (10, 100), which is 4dp padding. No scrolling ever. (Changed after QA: the first design had a 328dp panel and 35.6dp cells at 9x9; the board is never touched, so it may go close to the sides, and 9x9 cells are now 37.8dp at 360 wide and 33.3dp at 320 wide, about the most nine cells can have on 320dp.) |
+| Cell size | **grid / N dp** (340 / N on the reference screen) |
+| Empty cell | fill `#F4ECDF`, outline `#D9CCB8` (max(1.25dp, 2.5% of cell)), no mark. Inset 3% of the cell on every side, corner radius 22% of the cell |
+| Filled cell | same geometry, fill = family colour, rim ink `#2B2320` at 28% (max(1dp, 2.5%)), one mark on top (below) |
+
+| Stage | Board | Cell | Ghost | Tray cell (see below) |
+|---|---|---|---|---|
+| 1 | 5x5 | 68.0 | 3dp | 44 |
+| 2 | 5x5 | 68.0 | 3dp | 29 |
+| 3 | 6x6 | 56.7 | 3dp | 29 |
+| 4 | 7x7 | 48.6 | 4.5dp + glow | 22 |
+| 5 | 8x8 | 42.5 | 4.5dp + glow | 22 |
+| 6 | 9x9 | 37.8 | 4.5dp + glow | 17 |
+
+Board cells are never touch targets. **Empty-cell vs Sunshine block is the weakest fill contrast at 1.23** (luminance ratio), which is why filled cells carry the ink rim and the mark and empty cells carry an outline and no mark; do not drop either.
+
+### Tray
+- Three slots, **96 x 112dp**, left edges at x = 24, 132, 240 (12dp gaps, **24dp from each screen side**, which keeps the outer slots off the system back-gesture strip on gesture-navigation phones; a 320dp phone gets 82.7dp slots, still over 72), top at y = 508. The whole slot is the grab area. Slot resting = white, 3dp sunshine border, radius 20 (same as Paw Kitchen's tray tile). Slot with its block lifted = transparent, dashed `#DCCFC0` border (8 on, 7 off), block shown at 18% until it lands or glides home. Empty slot (block placed) = the same dashed outline, nothing inside.
+- **Tray cell = min(board cell, floor((slot width - 8) / widest side in cells of any block in the stage's set), and the same by height)**: 44 at stage 1 (widest 2), 29 at stages 2-3 (3), 22 at stages 4-5 (4), 17 at stage 6 (5). The block is centred in its slot. On pick-up it grows to the full board cell over 120ms.
+- The home button (56dp, top-left at (20, 20)), the board and the tray never overlap; on stage 6 the bottom of the tray is at y = 620. On short windows the tray's bottom margin (72 down to 12), then the slot height (112 down to 72), then the gap above the tray (24 down to 12), then the top margin (96 down to 84) give way before the board shrinks.
+
+### Block encoding (for the developer)
+Cells are `[col, row]` offsets from the block's top-left, x to the right, y down. A block has an id, a family, and its cells. Width = max col + 1, height = max row + 1. Blocks never rotate; every orientation is its own entry.
+
+| Family | Colour | Hex | Mark | Mark colour | Ids and cells |
+|---|---|---|---|---|---|
+| dot (stage 1) | Sunshine | `#FFD23F` | star | ink `#2B2320` | `dot` [0,0] |
+| bar2 (stage 1) | Bubblegum | `#FF9ACB` | heart | ink | `bar2h` [0,0] [1,0]; `bar2v` [0,0] [0,1] |
+| bar3 (stage 2) | Sky | `#28A9E3` | drop | ink | `bar3h` [0..2,0]; `bar3v` [0,0..2] |
+| square (stage 3) | Tangerine | `#E85A10` | fish | ink | `sq` [0,0] [1,0] [0,1] [1,1] |
+| corner (stage 3) | Leaf | `#1A8344` | leaf | white | `cTL` [0,0] [1,0] [0,1]; `cTR` [0,0] [1,0] [1,1]; `cBR` [1,0] [0,1] [1,1]; `cBL` [0,0] [0,1] [1,1] (the letters name where the elbow cell is) |
+| bar4 (stage 4) | Cocoa | `#83532B` | bone | white | `bar4h` [0..3,0]; `bar4v` [0,0..3] |
+| rect (stage 5) | Grape | `#5A31A6` | paw | white | `rectV` 2 wide 3 tall [0..1,0..2]; `rectH` 3 wide 2 tall [0..2,0..1] |
+| bar5 (stage 6) | Midnight | `#223475` | moon | white | `bar5h` [0..4,0]; `bar5v` [0,0..4] |
+
+Sixteen shapes, eight families: the colour and mark belong to the family, so a bar lying down and standing up share both, and the mark is always drawn upright. The board stores the family per filled cell, which is all the drawing needs. Colours run light to dark in the order the families arrive, so stage 1 is the two brightest.
+
+**Mark drawing.** Solid single-colour shape in a unit box from -0.5 to +0.5 on both axes (y down), centred on the cell, scaled to **62% of the cell side**, filled in the mark colour with a 0.07-unit round-join stroke in the same colour. Paths (unit box):
+- star: 10-point polygon, outer radius 0.52, inner 0.24, shifted down 0.03, first point straight up.
+- heart: `M0,0.42 C-0.58,0.02 -0.5,-0.44 -0.2,-0.44 C-0.08,-0.44 0,-0.36 0,-0.27 C0,-0.36 0.08,-0.44 0.2,-0.44 C0.5,-0.44 0.58,0.02 0,0.42Z`
+- drop: `M0,-0.5 C0.08,-0.32 0.36,-0.12 0.36,0.14 A0.36,0.36 0 0 1 -0.36,0.14 C-0.36,-0.12 -0.08,-0.32 0,-0.5Z`
+- fish: `M-0.46,0 C-0.34,-0.24 0.06,-0.3 0.24,-0.04 L0.48,-0.26 L0.48,0.26 L0.24,0.04 C0.06,0.3 -0.34,0.24 -0.46,0Z` plus an eye, a circle r 0.055 at (-0.24, -0.04) in the cell colour.
+- leaf: `M-0.42,0.42 C-0.54,-0.08 -0.12,-0.5 0.44,-0.44 C0.5,0.12 0.08,0.52 -0.42,0.42Z` plus a vein, line (-0.34,0.34) to (0.2,-0.2), 0.07 wide, round caps, in the cell colour.
+- bone: rotate -40 degrees; rect x -0.3..0.3, y -0.1..0.1; four circles r 0.13 at (+-0.32, +-0.13).
+- paw: ellipses (cx, cy, rx, ry): pad (0, 0.2, 0.28, 0.24); toes (-0.36, -0.02, 0.11, 0.14), (-0.13, -0.27, 0.12, 0.15), (0.13, -0.27, 0.12, 0.15), (0.36, -0.02, 0.11, 0.14).
+- moon: `M0.25,-0.5 A0.5,0.5 0 1 0 0.25,0.5 A0.7,0.7 0 0 1 0.25,-0.5Z`
+At the smallest cell (37.8dp) a mark is about 23dp; in the stage-6 tray (17dp cell) about 11dp, where the picture is a reminder and the colour and silhouette do the work. Pictures only, never letters or numbers.
+
+**Luminance contrast (WCAG ratio, measured; the mockup page recomputes all 28 pairs live from the hexes).** Ladder, lightest to darkest, ratio to the family above:
+
+| Family | Luminance | Ratio to the one above | Mark vs block |
+|---|---|---|---|
+| Sunshine | 0.677 | (lightest) | 10.7 (ink) |
+| Bubblegum | 0.487 | 1.35 | 7.9 (ink) |
+| Sky | 0.343 | 1.36 | 5.8 (ink) |
+| Tangerine | 0.245 | 1.33 | 4.3 (ink) |
+| Leaf | 0.169 | 1.35 | 4.8 (white) |
+| Cocoa | 0.112 | 1.35 | 6.5 (white) |
+| Grape | 0.071 | 1.34 | 8.7 (white) |
+| Midnight | 0.041 | 1.33 | 11.6 (white) |
+
+Every one of the 28 pairs is at least 1.33 (the closest are neighbours, so all others are larger); all eight can share a stage-6 board, so the rule is every pair at least **1.3**, and every mark at least **3** against its block. The developer should add the same unit test as `PawPourRobustnessTest` (pair ratios, mark ratios, no two families sharing a mark). The numbers above were worked by hand and the mockup page recomputes them in the browser; if the unit test disagrees with either, the test wins and only lightness moves, never hue or mark.
+
+### Drag, ghost and snap
+- **Grab.** Finger down anywhere in a slot with a block: the block grows to full board cell size over 120ms (ease-out), a soft shadow (ink 18%, 8dp down) appears, the slot goes dashed.
+- **Ride offset.** The block is centred horizontally on the fingertip and its **bounding-box bottom edge is 64dp above the fingertip**, at every stage and block size (so a bar of 5 standing up at 36dp cells reaches 178dp above the bottom edge; the finger is never under it).
+- **Ghost.** Shown only when a legal spot is within reach; cells filled `#4FC1E9` at 30%, outline `#1A8FCB` 3dp (measures 3.1 against an empty cell). On 7x7 and larger: fill 42%, outline 4.5dp, plus a 10dp `#4FC1E9` at 50% halo stroke under it. It jumps between spots with no animation, so what you see is what you get. No mark on the ghost.
+- **Snap reach.** Legal spot nearest to the drawn block's top-left, if within max(one board cell, 40dp); ties go to the spot nearer the fingertip.
+- **Drop, legal.** The block moves into its cells over 90ms, then a "plop": those cells scale 1 to 1.08 to 1 over 160ms (sine). Soft plop sound.
+- **Drop, illegal or interrupted.** Glides to its slot over 250ms (ease-out) shrinking to tray size. No sound, shake, red or count. The block can be grabbed again at once, mid-glide.
+
+### Clear, clear-out and growth motion
+| Moment | Look | Timing |
+|---|---|---|
+| **Line clear** | The line's cells are removed from the grid at once (the board is playable straight away). A white shimmer band (1.6 cells wide, leaning 0.18 of a cell, white at 85% in the middle fading to 0 at both edges) sweeps along the line from start to end, from -0.2 to 1.2 of the line's length. Each cell, as the band's centre passes it: brightens (white 50%, scale up to 1.06 in 150ms), then shrinks to 0 and fades over 250ms. 4 plus the number of cleared cells, at most 12, four-point sunshine sparkles (8 to 15dp radius) pop near the cells, each 520ms, timed to the sweep. One soft rising chime at t = 0. Nothing above or beside the line moves. Several lines play together (one shared sweep, one sparkle set). | Sweep 600ms; cells gone by 850ms; the whole thing 1s |
+| **Animal reaction** | Fox (the Paw Match fox with Paw Kitchen's happy face: squeezed-shut arched eyes, open smile, pink cheeks), 72dp head, peeks up from behind the board's top-right edge (head at x 266 to 338, ears reaching y 34), two paws (20 x 14dp, `#F0924A`) rest on the panel edge at (284, 98) and (320, 98). Rises 58dp over 250ms, holds 500ms, sinks over 250ms. The panel is drawn on top of it, so it never covers a cell. One animal per clear; the full production set is the six Paw Match critters in a fixed rotation. It is not drawn at all when idle | 1s |
+| **Clear-out** | After about 1s of nothing fitting, the 2 or 3 fullest rows (ties: top first) leave together: a white wash (50%) fades in over 200ms on those rows and out by 900ms while the cells scale to 0.72 and fade over 700ms; 4 plus a few small sparkles (5 to 8dp; pale sunshine `#FFF6C7`), each 520ms, scattered over the rows in the first 250ms. Soft whoosh. No animal, no chime, no message; tray untouched | 900ms |
+| **Growth** | After the last line-clear animation ends, the grid re-fits: cell size eases from 320/N to 320/(N+1) over 520ms (ease in-out) while every placed cell keeps its column and row; one empty row (bottom) and one empty column (right) fade in as ordinary empty cells. Nothing is announced, no sound | 520ms |
+| **Refill** | 500ms after the last block is placed (and any clear-out or line clear has ended), all three slots slide in from 28dp lower with a fade over 320ms, together | 320ms |
+
+### States and safety
+- The home button (56dp white circle, ink home glyph, top-left 20dp from the edges) is drawn last and stays on top; it works mid-drag, and a drag that ends over it is an illegal drop.
+- Only the first finger that grabbed a block is followed; other touches are ignored until it lifts (the mockup implements this).
+- No screen contains text, a score, a counter, a timer, a "game over" or any lose state.
+
+### Decisions awaiting founder OK (mockup review)
+Pink badge; the eight colours with star, heart, drop, fish, leaf, bone, paw and moon; the peek-up fox behind the board (rotating through the six critters); the quieter, animal-free clear-out look; tray blocks drawn smaller than board cells (46 down to 18dp); the block riding 64dp above the fingertip measured from its bottom edge.
+
 ## Hard rules
 - Every screen designed for a phone held one-handed by small hands, landscape or portrait per the game's needs.
 - Touch targets ≥48dp; generous spacing between anything tappable.

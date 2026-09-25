@@ -1,5 +1,6 @@
 package com.pawplay.app.games
 
+import com.pawplay.app.games.pawblocks.PawBlocksGame
 import com.pawplay.app.games.pawkitchen.PawKitchenGame
 import com.pawplay.app.games.pawmatch.PawMatchGame
 import com.pawplay.app.games.pawpour.PawPourGame
@@ -15,5 +16,6 @@ object GameCatalog {
         PawPourGame,
         PawKitchenGame,
         PawTraceGame,
+        PawBlocksGame,
     )
 }
